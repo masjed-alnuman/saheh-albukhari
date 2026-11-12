@@ -1,0 +1,5 @@
+# لا ترفع هذه الملفات إلى GitHub
+_tools/
+_backup/
+apps-script-Bukhari.gs
+desktop.ini

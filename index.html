@@ -524,6 +524,38 @@ pre.code{
 .foot code{font-family:ui-monospace,monospace;direction:ltr;color:var(--muted);font-size:10px;background:rgba(255,255,255,.04);padding:1px 6px;border-radius:5px}
 
 /* ============================================================
+   مسح QR
+   ============================================================ */
+.qr-body{display:flex;flex-direction:column;gap:10px}
+.qr-video-wrap{
+  position:relative;border-radius:14px;overflow:hidden;background:#000;
+  aspect-ratio:4/3;display:grid;place-items:center;border:1px solid var(--line);
+}
+.qr-video-wrap video{width:100%;height:100%;object-fit:cover;background:#000}
+.qr-frame{
+  position:absolute;inset:14%;border:2px solid rgba(52,211,153,.9);border-radius:18px;
+  box-shadow:0 0 0 999px rgba(0,0,0,.38);pointer-events:none;
+}
+.qr-frame::after{
+  content:"";position:absolute;inset-inline:8%;height:2px;top:6%;
+  background:linear-gradient(90deg,transparent,#34d399,transparent);
+  animation:qrscan 2.2s linear infinite;
+}
+@keyframes qrscan{0%{top:6%}100%{top:94%}}
+.qr-status{font-size:12px;color:var(--muted);text-align:center;min-height:18px;line-height:1.5}
+.qr-status.ok{color:var(--em-2);font-weight:800}
+.qr-status.err{color:#fca5a5;font-weight:800}
+.qr-code-box{
+  display:grid;place-items:center;background:#fff;padding:12px;border-radius:16px;
+  width:max-content;margin:0 auto;min-height:234px;min-width:234px;
+}
+.qr-code-box img,.qr-code-box canvas{display:block;border-radius:6px}
+.qr-student-link{
+  font-size:10px;direction:ltr;color:var(--muted-2);word-break:break-all;
+  background:#07100d;border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-top:8px;
+}
+
+/* ============================================================
    الطباعة
    ============================================================ */
 #printArea{display:none}
@@ -583,6 +615,7 @@ pre.code{
   .cards-grid{padding:9px;grid-template-columns:1fr}
   .dlg-foot{flex-direction:column-reverse}
   .lbl-print,.lbl-imp,.lbl-exp{display:none}
+  .lbl-qr{display:none}
   .topbar-inner{min-height:44px}
   .inp{font-size:16px}
   .quick-num{letter-spacing:1px}
@@ -732,9 +765,13 @@ pre.code{
         <select id="weekSelect" aria-label="اختيار أسبوع التفقد"></select>
       </div>
       <button class="btn btn-gold btn-sm" data-action="openNewWeek"><i class="fa-solid fa-calendar-plus"></i>خميس جديد</button>
+      <button class="btn btn-primary btn-sm" data-action="openAddStudent"><i class="fa-solid fa-user-plus"></i><span class="lbl-add">طالب جديد</span></button>
       <button class="week-clock" id="weekClock" data-action="editWeekTime" title="وقت بدء المجلس — اضغط للتعديل">
         <i class="fa-regular fa-clock"></i>
         <span id="weekClockText">—</span>
+      </button>
+      <button class="btn btn-ghost btn-sm" data-action="openScanner" title="تسجيل الحضور بمسح رمز QR">
+        <i class="fa-solid fa-qrcode" style="color:#34d399"></i><span class="lbl-qr">مسح QR</span>
       </button>
 
       <div class="seg" id="filterSeg" role="group" aria-label="تصفية الحضور">
@@ -915,7 +952,8 @@ pre.code{
       <div class="hist" id="infoHistory"></div>
     </div>
     <div class="dlg-foot">
-      <button class="btn btn-gold" data-action="printStudent"><i class="fa-solid fa-print"></i>طباعة السجل</button>
+      <button class="btn btn-primary" data-action="studentQR"><i class="fa-solid fa-qrcode"></i>رمز QR</button>
+      <button class="btn btn-gold" data-action="printStudent"><i class="fa-solid fa-print"></i>طباعة</button>
       <button class="btn btn-ghost" data-action="editStudent" id="infoEditBtn"><i class="fa-solid fa-pen-to-square"></i>تعديل</button>
       <button class="btn btn-danger" data-action="deleteStudent" id="infoDeleteBtn"><i class="fa-solid fa-trash"></i>حذف</button>
     </div>
@@ -1210,6 +1248,62 @@ pre.code{
   </div>
 </div>
 
+<!-- ======================= مودال: مسح QR ======================= -->
+<div class="modal" id="modalQR" role="dialog" aria-modal="true">
+  <div class="dialog" style="max-width:460px">
+    <div class="dlg-head">
+      <div class="dlg-ico"><i class="fa-solid fa-qrcode"></i></div>
+      <div>
+        <h3>مسح رمز QR</h3>
+        <p id="qrWeekLabel">—</p>
+      </div>
+      <button class="dlg-close" data-action="closeModal" data-modal="modalQR"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="dlg-body">
+      <div class="qr-body">
+        <div class="qr-video-wrap">
+          <video id="qrVideo" playsinline autoplay muted></video>
+          <canvas id="qrCanvas" style="display:none"></canvas>
+          <div class="qr-frame" aria-hidden="true"></div>
+        </div>
+        <div class="qr-status" id="qrStatus">جارٍ تشغيل الكاميرا…</div>
+        <div id="qrLast"></div>
+        <div class="box">
+          <label class="lbl" for="qrManual">أو أدخل رقم الطالب (إذا تعذّرت الكاميرا)</label>
+          <div style="display:flex;gap:6px">
+            <input class="inp" id="qrManual" inputmode="numeric" autocomplete="off" placeholder="مثال: 12">
+            <button class="btn btn-primary" data-action="qrManualSubmit"><i class="fa-solid fa-check"></i>حاضر</button>
+          </div>
+        </div>
+        <div class="note" id="qrCounter">لم يُسجَّل أحد بعد في هذه الجلسة</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= مودال: رمز QR للطالب ======================= -->
+<div class="modal" id="modalStudentQR" role="dialog" aria-modal="true">
+  <div class="dialog" style="max-width:380px">
+    <div class="dlg-head">
+      <div class="dlg-ico gold"><i class="fa-solid fa-qrcode"></i></div>
+      <div style="min-width:0">
+        <h3 id="qrStudentName">—</h3>
+        <p id="qrStudentSub">—</p>
+      </div>
+      <button class="dlg-close" data-action="closeModal" data-modal="modalStudentQR"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="dlg-body" style="text-align:center">
+      <div class="qr-code-box" id="qrCodeBox"></div>
+      <p class="note" style="margin-top:10px">امسح الرمز من زر «مسح QR» لتسجيل الحضور، أو افتح الرابط على جوال الطالب للتسجيل الذاتي.</p>
+      <div class="qr-student-link" id="qrStudentLink" dir="ltr">—</div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" data-action="copyQR"><i class="fa-regular fa-copy"></i>نسخ الرابط</button>
+        <button class="btn btn-ghost btn-sm" data-action="downloadQR"><i class="fa-solid fa-download"></i>حفظ الصورة</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ======================= مودال: تأكيد ======================= -->
 <div class="modal" id="modalConfirm" role="dialog" aria-modal="true">
   <div class="dialog" style="max-width:420px">
@@ -1229,6 +1323,8 @@ pre.code{
 <div id="toastHost" aria-live="polite"></div>
 <div id="printArea"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <script>
 (function () {
@@ -1237,7 +1333,7 @@ pre.code{
 /* ============================================================
    0. ثوابت وأدوات
    ============================================================ */
-const VERSION = '2.2.0';
+const VERSION = '2.3.0';
 const LS_STATE = 'bukhari.state.v2';
 const LS_BACKUPS = 'bukhari.backups.v2';
 const LS_CLIENT = 'bukhari.clientId';
@@ -3163,9 +3259,11 @@ function openModal(id) {
 }
 function closeModal(id) {
   $('#' + id).classList.remove('open');
+  if (id === 'modalQR') stopCamera();
   if (!$('.modal.open')) document.body.style.overflow = '';
 }
 function closeAllModals() {
+  stopCamera();
   $$('.modal.open').forEach(m => m.classList.remove('open'));
   document.body.style.overflow = '';
 }
@@ -3222,6 +3320,316 @@ function resetFilters() {
 }
 
 /* ============================================================
+   13.5 مسح QR والتسجيل الذاتي
+   ============================================================ */
+const QR_FALLBACK_BASE = 'https://masjed-alnuman.github.io/saheh-albukhari/';
+let qrStream = null;
+let qrRaf = null;
+let qrScanning = false;
+let qrLastCode = '';
+let qrLastAt = 0;
+let qrSessionCount = 0;
+let audioCtx = null;
+let qrCurrentStudent = null;
+let pendingQr = null;
+
+function qrTokenOf(s) {
+  let h = 2166136261;
+  const str = 'bukhari|' + s.id;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return 'q' + ((h >>> 0).toString(36));
+}
+function qrBaseUrl() {
+  if (/^https?:/.test(location.origin)) {
+    return location.origin + location.pathname.replace(/[^/]*$/, '');
+  }
+  return QR_FALLBACK_BASE;
+}
+function qrLinkOf(s) {
+  return qrBaseUrl() + '?qr=' + qrTokenOf(s);
+}
+
+function parseScanText(text) {
+  const s = String(text == null ? '' : text).trim();
+  if (!s) return '';
+  try {
+    const u = new URL(s);
+    const q = u.searchParams.get('qr') || u.searchParams.get('checkin') || u.searchParams.get('num');
+    if (q) return q;
+  } catch (e) {}
+  const m = s.match(/BKH[\s:_-]*([A-Za-z0-9]+)/i);
+  if (m) return m[1];
+  return s;
+}
+
+function findStudentByCode(raw) {
+  if (!raw) return null;
+  const r = String(raw).trim();
+  if (/^\d+$/.test(r)) {
+    const n = parseInt(r, 10);
+    return studentsSorted().find(s => s.serialNumber === n) || null;
+  }
+  const tok = r.replace(/^q/i, '');
+  return studentsSorted().find(s => qrTokenOf(s).slice(1) === tok) || null;
+}
+
+function setQRStatus(text, kind) {
+  const el = $('#qrStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'qr-status' + (kind ? ' ' + kind : '');
+}
+
+function beep(ok) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = ok ? 880 : 220;
+    g.gain.value = 0.05;
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start();
+    o.stop(audioCtx.currentTime + (ok ? 0.12 : 0.2));
+  } catch (e) {}
+}
+
+async function openScanner() {
+  const wk = activeWeek();
+  if (!wk) { toast('أضف أسبوعاً أولاً', 'warn'); return; }
+  qrSessionCount = 0;
+  qrLastCode = '';
+  qrLastAt = 0;
+  $('#qrWeekLabel').textContent = wk.label + ' — ' + prettyDate(wk.date) + (wk.startTime ? ' • البدء ' + fmtTime12(wk.startTime) : '');
+  $('#qrLast').innerHTML = '';
+  $('#qrCounter').textContent = 'لم يُسجَّل أحد بعد في هذه الجلسة';
+  $('#qrManual').value = '';
+  setQRStatus('جارٍ تشغيل الكاميرا…');
+  openModal('modalQR');
+  await startCamera();
+}
+
+async function startCamera() {
+  const video = $('#qrVideo');
+  if (!video) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setQRStatus('المتصفح لا يدعم الكاميرا — استخدم الإدخال اليدوي', 'err');
+    return;
+  }
+  if (qrStream) return;
+  try {
+    qrStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
+    });
+    video.srcObject = qrStream;
+    await video.play();
+    setQRStatus('وجّه الكاميرا نحو رمز QR');
+    qrScanning = true;
+    qrLoop();
+  } catch (e) {
+    const msg = e && e.name === 'NotAllowedError'
+      ? 'تم رفض إذن الكاميرا — اسمح بالوصول من إعدادات المتصفح'
+      : e && e.name === 'NotFoundError'
+        ? 'لا توجد كاميرا على هذا الجهاز — استخدم الإدخال اليدوي'
+        : 'تعذر تشغيل الكاميرا — استخدم الإدخال اليدوي';
+    setQRStatus(msg, 'err');
+  }
+}
+
+function stopCamera() {
+  qrScanning = false;
+  if (qrRaf) { cancelAnimationFrame(qrRaf); qrRaf = null; }
+  if (qrStream) {
+    qrStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+    qrStream = null;
+  }
+  const v = $('#qrVideo');
+  if (v) v.srcObject = null;
+}
+
+function qrLoop() {
+  if (!qrScanning) return;
+  const video = $('#qrVideo');
+  const canvas = $('#qrCanvas');
+  if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    if (w && h) {
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(video, 0, 0, w, h);
+      if (typeof jsQR === 'function') {
+        const img = ctx.getImageData(0, 0, w, h);
+        const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+        if (code && code.data) handleQrCode(code.data);
+      }
+    }
+  }
+  qrRaf = requestAnimationFrame(qrLoop);
+}
+
+function handleQrCode(text) {
+  const t = now();
+  if (text === qrLastCode && t - qrLastAt < 3000) return;
+  qrLastCode = text;
+  qrLastAt = t;
+  const s = findStudentByCode(parseScanText(text));
+  if (!s) {
+    setQRStatus('رمز غير معروف — تأكد أنه رمز أحد طلاب المجلس', 'err');
+    beep(false);
+    return;
+  }
+  markFromScanner(s);
+}
+
+function markFromScanner(s) {
+  const wk = activeWeek();
+  if (!wk) return;
+  const prev = recStatus(s.attendance ? s.attendance[wk.id] : null);
+  if (prev === 'present') {
+    const tm = attTiming(s, wk);
+    setQRStatus('#' + s.serialNumber + ' ' + s.fullName + ' — مسجَّل مسبقاً' + (tm ? ' (' + tm.text + ')' : ''), 'ok');
+    beep(false);
+    return;
+  }
+  setAttendance(s.id, wk.id, 'present', { silent: true });
+  const tm = attTiming(s, wk);
+  qrSessionCount++;
+  $('#qrCounter').textContent = 'تم تسجيل ' + qrSessionCount + ' في هذه الجلسة';
+  setQRStatus('✓ ' + s.fullName + ' — ' + (tm ? tm.text : 'حاضر'), 'ok');
+  $('#qrLast').innerHTML =
+    '<div class="box" style="border-color:rgba(16,185,129,.45)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+        '<strong style="color:#fff">#' + s.serialNumber + ' ' + esc(s.fullName) + '</strong>' +
+        '<span class="tag p">حاضر</span>' +
+      '</div>' +
+      '<div class="note" style="margin-top:4px">' + esc(tm ? tm.title : '') + '</div>' +
+    '</div>';
+  beep(true);
+  try { if (navigator.vibrate) navigator.vibrate(60); } catch (e) {}
+}
+
+function qrManualSubmit() {
+  const input = $('#qrManual');
+  const v = input.value.trim();
+  if (!v) { toast('اكتب رقم الطالب أولاً', 'warn'); return; }
+  const s = findStudentByCode(parseScanText(v));
+  if (!s) {
+    setQRStatus('لا يوجد طالب بهذا الرقم: ' + v, 'err');
+    beep(false);
+    return;
+  }
+  markFromScanner(s);
+  input.value = '';
+  input.focus();
+}
+
+function openStudentQR(sid) {
+  const s = getStudent(sid || currentInfoId);
+  if (!s) { toast('اختر طالباً أولاً', 'warn'); return; }
+  qrCurrentStudent = s;
+  const link = qrLinkOf(s);
+  $('#qrStudentName').textContent = s.fullName;
+  $('#qrStudentSub').textContent = '#' + s.serialNumber + ' • ' + qrTokenOf(s);
+  $('#qrStudentLink').textContent = link;
+  const box = $('#qrCodeBox');
+  box.innerHTML = '';
+  if (typeof QRCode === 'undefined') {
+    box.innerHTML = '<p class="note" style="color:#333">تعذر تحميل مكتبة QR — تحقق من الاتصال</p>';
+  } else {
+    new QRCode(box, {
+      text: link,
+      width: 210,
+      height: 210,
+      correctLevel: QRCode.CorrectLevel.M,
+      colorDark: '#000000',
+      colorLight: '#ffffff'
+    });
+  }
+  openModal('modalStudentQR');
+}
+
+function copyQRLink() {
+  const link = qrCurrentStudent ? qrLinkOf(qrCurrentStudent) : '';
+  if (!link) return;
+  const ok = () => toast('تم نسخ الرابط', 'ok');
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = link;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); ok(); }
+    catch (e) { toast('تعذر النسخ', 'warn'); }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(link).then(ok).catch(fallback);
+  } else fallback();
+}
+
+function downloadQR() {
+  const canvas = $('#qrCodeBox canvas');
+  if (!canvas || !qrCurrentStudent) { toast('لا توجد صورة لحفظها', 'warn'); return; }
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = 'QR-' + qrCurrentStudent.serialNumber + '.png';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function handleDeepLink() {
+  let q = '';
+  try {
+    const p = new URLSearchParams(location.search);
+    q = p.get('qr') || p.get('checkin') || '';
+    if (!q) return;
+    history.replaceState({}, '', location.pathname);
+  } catch (e) { return; }
+  pendingQr = q;
+  tryDeepLink(0);
+}
+
+function tryDeepLink(attempt) {
+  if (!pendingQr) return;
+  const s = findStudentByCode(parseScanText(pendingQr));
+  if (!s) {
+    if (attempt < 12) { setTimeout(() => tryDeepLink(attempt + 1), 1000); return; }
+    pendingQr = null;
+    toast('رمز QR غير معروف — تأكد من الرابط', 'error', { duration: 7000 });
+    return;
+  }
+  const wk = activeWeek();
+  if (!wk) { pendingQr = null; toast('لا يوجد خميس مسجّل بعد', 'warn'); return; }
+  const prev = recStatus(s.attendance ? s.attendance[wk.id] : null);
+  if (prev === 'present') {
+    pendingQr = null;
+    toast('حضورك مسجّل مسبقاً في ' + wk.label, 'ok', { duration: 6000 });
+    return;
+  }
+  pendingQr = null;
+  confirmDialog({
+    title: 'تسجيل الحضور',
+    sub: '#' + s.serialNumber + ' • ' + s.fullName,
+    body: 'هل تريد تسجيل حضورك في ' + wk.label + ' (' + prettyDate(wk.date) + ')؟',
+    okText: 'تسجيل الحضور',
+    onOk: function () {
+      setAttendance(s.id, wk.id, 'present', { silent: true });
+      const tm = attTiming(s, wk);
+      toast('تم تسجيل حضورك ✓' + (tm ? ' — ' + tm.text : ''), 'ok', { duration: 8000 });
+    }
+  });
+}
+
+/* ============================================================
    14. الأحداث
    ============================================================ */
 function bindEvents() {
@@ -3266,6 +3674,11 @@ function bindEvents() {
         break;
       case 'doImport': doImport(); break;
       case 'openSettings': openSettings(); break;
+      case 'openScanner': openScanner(); break;
+      case 'qrManualSubmit': qrManualSubmit(); break;
+      case 'studentQR': openStudentQR(currentInfoId); break;
+      case 'copyQR': copyQRLink(); break;
+      case 'downloadQR': downloadQR(); break;
       case 'welcomeSettings':
         closeModal('modalWelcome');
         openSettings();
@@ -3315,6 +3728,9 @@ function bindEvents() {
     quickAction('present');
   });
   $('#quickAbsentBtn').addEventListener('click', function () { quickAction('absent'); });
+  $('#qrManual').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); qrManualSubmit(); }
+  });
 
   $('#weekSelect').addEventListener('change', function (e) {
     setActiveWeek(e.target.value);
@@ -3353,6 +3769,7 @@ function bindEvents() {
 
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && state.settings.autoSync && syncUrl()) pullState(false);
+    if (document.visibilityState === 'hidden') stopCamera();
   });
 
   window.addEventListener('online', function () {
@@ -3388,6 +3805,7 @@ function init() {
   render();
   startPolling();
   setInterval(renderWeekClock, 30000);
+  handleDeepLink();
 
   if (syncUrl() && state.settings.autoSync) {
     setTimeout(() => { pullState(false); }, 900);
