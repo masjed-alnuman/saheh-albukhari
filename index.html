@@ -598,7 +598,8 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 .ck-foot{text-align:center;font-size:10px;color:var(--muted-2);margin:14px 0 0}
 
 /* ملصق الطباعة */
-#printArea .poster{text-align:center;color:#000;font-family:'Tajawal',sans-serif;padding:6mm}
+@page poster{size:A4 portrait;margin:10mm}
+#printArea .poster{text-align:center;color:#000;font-family:'Tajawal',sans-serif;padding:6mm;page:poster}
 #printArea .poster .p-logo{width:26mm;height:26mm;object-fit:contain;border-radius:50%;border:2px solid #0b6b29;padding:2mm;margin:0 auto 4mm}
 #printArea .poster h1{font-size:24pt;color:#0b6b29;margin:0 0 2mm}
 #printArea .poster .p-sub{font-size:11pt;color:#333;margin:0 0 6mm}
