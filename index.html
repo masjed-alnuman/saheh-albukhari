@@ -1082,6 +1082,13 @@ pre.code{
 
       <!-- كود Script -->
       <div class="tab-pane" id="tab-script">
+        <div class="box" style="margin-bottom:12px">
+          <div class="box-title"><i class="fa-solid fa-circle-check" style="color:#34d399"></i>المزامنة منصّبة ومربوطة مسبقاً</div>
+          <p class="note" style="margin-top:0;color:#d7e7e0">
+            مشروع <strong>«مزامنة حضور مجلس البخاري»</strong> منشور ومربوط بالموقع. لا تحتاج أي خطوة.
+            الكود بالأسفل نسخة احتياطية للرجوع إليها إذا احتجت إعادة النشر.
+          </p>
+        </div>
         <ol class="steps">
           <li>افتح ملف <strong>Google Sheets</strong> الخاص بالحضور ← قائمة <strong>Extensions</strong> ← <strong>Apps Script</strong>.</li>
           <li>امسح الكود القديم بالكامل، والصق الكود الجديد بالأسفل، ثم <strong>احفظ</strong>.</li>
@@ -1238,7 +1245,10 @@ const LS_ACTIVE = 'bukhari.activeWeek.v2';
 const LS_RANGE = 'bukhari.range.v3';
 const LS_LAST_EXPORT = 'bukhari.lastExport.v3';
 const MAX_BACKUPS = 4;
-const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbxttJtlJvDwoVgNgak162Vs3Ij6PD230eZJ1TjVCByIxbiKmvJj6Adsp60j3RwC75Dy/exec';
+const DEFAULT_WEBHOOK = 'https://script.google.com/macros/s/AKfycbznlROSbs0W-jliySIEfgNovTe2BsN2U6BBSlMvmdCz9Psm0NZ7QZ9gHFIK3IVp2IIBLQ/exec';
+const LEGACY_WEBHOOKS = [
+  'https://script.google.com/macros/s/AKfycbxttJtlJvDwoVgNgak162Vs3Ij6PD230eZJ1TjVCByIxbiKmvJj6Adsp60j3RwC75Dy/exec'
+];
 
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -1424,6 +1434,9 @@ function migrate(raw) {
   out.settings.autoSync = out.settings.autoSync !== false;
   out.settings.interval = Math.min(120, Math.max(5, Number(out.settings.interval) || 15));
   out.settings.updatedAt = Number(out.settings.updatedAt) || 0;
+  if (LEGACY_WEBHOOKS.indexOf(out.settings.webhookUrl) !== -1) {
+    out.settings.webhookUrl = DEFAULT_WEBHOOK;
+  }
 
   (raw.weeks || []).forEach((w, i) => {
     if (!w || !w.id) return;
@@ -2915,6 +2928,12 @@ const SCRIPT_CODE = `/**********************************************************
  * انسخ هذا الكود كاملاً إلى: Extensions › Apps Script
  * ثم Deploy › New deployment › Web app › Anyone
  ********************************************************************/
+var SPREADSHEET_ID = '1xZC_GGDVyBeoIIMVZ5-D_QOrMrDL8j45KTIOdkeYUJk';
+
+function ss_() {
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
 var STATE_SHEET = '_حالة_المزامنة';
 var HUMAN_SHEET = 'سجل الحضور التراكمي';
 
@@ -2960,7 +2979,7 @@ function doPost(e) {
 }
 
 function stateSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = ss_();
   var sh = ss.getSheetByName(STATE_SHEET);
   if (!sh) {
     sh = ss.insertSheet(STATE_SHEET);
@@ -2970,7 +2989,7 @@ function stateSheet_() {
 }
 
 function backupSheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = ss_();
   var name = STATE_SHEET + '_نسخة';
   var sh = ss.getSheetByName(name);
   if (!sh) {
@@ -3058,7 +3077,7 @@ function rebuildSheet_(state) {
     rows.push([s.serialNumber, s.firstName, s.fatherName, s.lastName, s.fullName, p, a, pct].concat(cells));
   });
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = ss_();
   var sh = ss.getSheetByName(HUMAN_SHEET) || ss.insertSheet(HUMAN_SHEET);
   sh.clear();
   sh.setRightToLeft(true);
@@ -3072,7 +3091,7 @@ function rebuildSheet_(state) {
   // ورقة أوقات التسجيل
   var timeHead = ['الرقم', 'الاسم', 'المجلس', 'التاريخ', 'وقت البدء', 'وقت التسجيل', 'التقييم'];
   var timeRows = [];
-  var tz = Session.getScriptTimeZone();
+  var tz = ss.getSpreadsheetTimeZone();
   students.forEach(function (s) {
     weeks.forEach(function (w) {
       var rec = (s.attendance || {})[w.id];
