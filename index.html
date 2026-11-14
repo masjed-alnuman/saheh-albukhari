@@ -1247,6 +1247,12 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
             <div class="box-title"><i class="fa-solid fa-clock-rotate-left"></i>نسخ محلية تلقائية</div>
             <div style="font-size:11px;color:var(--muted);line-height:1.7" id="backupInfo">—</div>
           </div>
+          <div class="box">
+            <div class="box-title"><i class="fa-solid fa-cloud-arrow-up"></i>نسخة أسبوعية تلقائية (Google Drive)</div>
+            <p class="note" style="margin-top:0">كل خميس 11 مساءً تُحفظ نسخة JSON في مجلد «نسخ احتياطي - مجلس البخاري» على Drive، ويُحتفظ بآخر 12 نسخة، مع سجل في الشيت.</p>
+            <a id="backupAuthLink" class="btn btn-gold btn-sm" href="#" target="_blank" rel="noopener"><i class="fa-solid fa-key"></i>تفعيل/فحص النسخة الأسبوعية</a>
+            <p class="note" style="margin-top:6px">أول مرة فقط: افتح الرابط ووافق على الصلاحيات (Drive + Triggers).</p>
+          </div>
         </div>
       </div>
 
@@ -3136,6 +3142,8 @@ function openSettings() {
   $('#clientTag').textContent = state.clientId;
   $('#lastSaveTag').textContent = hhmmss(state.updatedAt);
   const backups = getBackups();
+  const authLink = $('#backupAuthLink');
+  if (authLink) authLink.href = syncUrl() ? syncUrl() + '?action=auth' : '#';
   $('#backupInfo').innerHTML = backups.length
     ? backups.slice().reverse().map(b => {
         const kb = b.data.length / 1024;
