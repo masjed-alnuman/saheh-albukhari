@@ -14,10 +14,8 @@
 <link rel="icon" type="image/jpeg" href="logo.jpg">
 <link rel="apple-touch-icon" href="logo.jpg">
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="vendor/fonts/fonts.css">
+<link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
 
 <style>
 /* ============================================================
@@ -559,6 +557,26 @@ pre.code{
 }
 
 /* ============================================================
+   قفل لوحة الإدارة
+   ============================================================ */
+.lock-screen{
+  position:fixed;inset:0;z-index:300;background:rgba(4,9,7,.985);
+  display:flex;align-items:center;justify-content:center;padding:18px;
+}
+.lock-card{
+  width:100%;max-width:360px;text-align:center;padding:24px 20px;
+  background:linear-gradient(180deg,#101b17,#0a1210);border:1px solid var(--line);
+  border-radius:22px;box-shadow:0 30px 80px -30px rgba(0,0,0,.95);
+}
+.lock-logo{width:64px;height:64px;border-radius:50%;background:#fff;object-fit:contain;border:2px solid var(--gold);padding:2px;margin:0 auto 10px}
+.lock-card h2{font-size:18px;color:#fff;margin:0 0 4px}
+.lock-sub{font-size:12px;color:var(--muted);margin:0 0 14px}
+.lock-pin{text-align:center;font-size:24px;font-weight:900;letter-spacing:9px;padding:10px 12px}
+.lock-error{font-size:11.5px;font-weight:800;color:#fca5a5;min-height:17px;margin:8px 0 0}
+.lock-card.shake{animation:shake .35s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+
+/* ============================================================
    شاشة تسجيل الحضور عند الباب (QR واحد)
    ============================================================ */
 #checkinView{min-height:100dvh;padding:18px;display:flex;align-items:center;justify-content:center}
@@ -690,6 +708,21 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
     يحتاج هذا الموقع إلى تشغيل JavaScript في المتصفح. يُرجى تفعيله ثم إعادة تحميل الصفحة.
   </div>
 </noscript>
+
+<!-- ======================= شاشة قفل لوحة الإدارة ======================= -->
+<div id="lockScreen" class="lock-screen hidden" role="dialog" aria-modal="true" aria-label="قفل لوحة الإدارة">
+  <div class="lock-card">
+    <img src="logo.jpg" alt="" class="lock-logo" onerror="this.style.display='none'">
+    <h2>لوحة الإدارة مقفلة</h2>
+    <p class="lock-sub">أدخل رمز الحماية للمتابعة</p>
+    <input id="lockPin" class="inp lock-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••" aria-label="رمز الحماية">
+    <button class="btn btn-primary btn-block" data-action="unlock" style="margin-top:10px">
+      <i class="fa-solid fa-lock-open"></i>دخول
+    </button>
+    <p id="lockError" class="lock-error"></p>
+    <p class="note" style="margin-top:10px">الرمز يُحفظ على هذا الجهاز فقط، ولا يُطلب في صفحة تسجيل الحضور QR.</p>
+  </div>
+</div>
 
 <!-- ======================= شاشة تسجيل الحضور (QR الباب) ======================= -->
 <section id="checkinView" class="hidden" aria-label="تسجيل الحضور">
@@ -1158,6 +1191,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
     <div class="dlg-body">
       <div class="tabs">
         <button class="active" data-action="tab" data-tab="sync">المزامنة</button>
+        <button data-action="tab" data-tab="security">الحماية</button>
         <button data-action="tab" data-tab="backup">النسخ الاحتياطي</button>
         <button data-action="tab" data-tab="script">كود Google</button>
         <button data-action="tab" data-tab="danger">متقدم</button>
@@ -1237,6 +1271,33 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
         </div>
         <p class="note" style="margin:0 0 6px">هذا الكود يضيف: قراءة الحالة من الشيت، ورقة «أوقات التسجيل»، ونسخة احتياطية داخل الشيت تُستخدم تلقائياً إذا تلفت الحالة الأساسية.</p>
         <pre class="code" id="scriptCode"></pre>
+      </div>
+
+      <!-- الحماية -->
+      <div class="tab-pane" id="tab-security">
+        <div class="box" style="margin-bottom:10px">
+          <div class="box-title"><i class="fa-solid fa-lock"></i>رمز حماية لوحة الإدارة</div>
+          <p class="note" style="margin-top:0">عند تعيين رمز، لن تُفتح لوحة الإدارة على هذا الجهاز إلا بعد إدخاله. صفحة تسجيل الحضور QR <b>لا تتأثر</b>.</p>
+          <div id="pinNotSet">
+            <label class="lbl" for="inPin">رمز جديد (4–6 أرقام)</label>
+            <div style="display:flex;gap:6px">
+              <input class="inp" id="inPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••">
+              <button class="btn btn-primary btn-sm" data-action="setPin"><i class="fa-solid fa-check"></i>تعيين</button>
+            </div>
+          </div>
+          <div id="pinSet" class="hidden">
+            <div class="badge-line" style="margin-bottom:8px"><i class="fa-solid fa-lock" style="color:#34d399"></i> رمز الحماية مفعّل على هذا الجهاز</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" data-action="lockNow"><i class="fa-solid fa-lock"></i>قفل الآن</button>
+              <button class="btn btn-ghost btn-sm" data-action="changePin"><i class="fa-solid fa-key"></i>تغيير الرمز</button>
+              <button class="btn btn-danger btn-sm" data-action="removePin"><i class="fa-solid fa-trash"></i>إزالة</button>
+            </div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="box-title"><i class="fa-solid fa-circle-info"></i>ملاحظة</div>
+          <p class="note" style="margin:0">الرمز حماية للواجهة على هذا الجهاز (يمنع العبث العابر). البيانات نفسها محمية بنسخ Google Sheets والنسخ الاحتياطية.</p>
+        </div>
       </div>
 
       <!-- متقدم -->
@@ -1444,9 +1505,9 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 <div id="toastHost" aria-live="polite"></div>
 <div id="printArea"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="vendor/qrcode.min.js" defer></script>
+<script src="vendor/jsQR.js" defer></script>
+<script src="vendor/xlsx.full.min.js" defer></script>
 <script>
 (function () {
 'use strict';
@@ -1454,7 +1515,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 /* ============================================================
    0. ثوابت وأدوات
    ============================================================ */
-const VERSION = '2.4.1';
+const VERSION = '2.5.0';
 const LS_STATE = 'bukhari.state.v2';
 const LS_BACKUPS = 'bukhari.backups.v2';
 const LS_CLIENT = 'bukhari.clientId';
@@ -3067,6 +3128,7 @@ function printStudent() {
    ============================================================ */
 function openSettings() {
   switchTab('sync');
+  renderPinUI();
   $('#inWebhook').value = state.settings.webhookUrl || '';
   $('#autoSyncToggle').checked = state.settings.autoSync !== false;
   $('#syncInterval').value = String(state.settings.interval || 15);
@@ -3951,6 +4013,135 @@ function downloadPoster() {
 }
 
 /* ============================================================
+   13.7 رمز حماية لوحة الإدارة (لا يشمل صفحة QR)
+   ============================================================ */
+const LS_PIN = 'bukhari.pinHash.v1';
+const SS_UNLOCK = 'bukhari.unlocked.v1';
+let pinAttempts = 0;
+let pinLockUntil = 0;
+
+function hasPin() {
+  try { return !!localStorage.getItem(LS_PIN); } catch (e) { return false; }
+}
+function pinUnlocked() {
+  try { return sessionStorage.getItem(SS_UNLOCK) === '1'; } catch (e) { return false; }
+}
+async function hashPin(pin) {
+  if (window.crypto && crypto.subtle) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('bukhari-pin|' + pin));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  let h = 5381;
+  const s = 'bukhari-pin|' + pin;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h) + s.charCodeAt(i);
+  return 'x' + (h >>> 0).toString(16);
+}
+
+function showLock() {
+  if (checkinMode) return;
+  if (!hasPin() || pinUnlocked()) return;
+  const el = $('#lockScreen');
+  if (!el) return;
+  el.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  const err = $('#lockError');
+  if (err) err.textContent = '';
+  setTimeout(() => { const i = $('#lockPin'); if (i) i.focus(); }, 120);
+}
+
+function hideLock() {
+  const el = $('#lockScreen');
+  if (el) el.classList.add('hidden');
+  if (!$('.modal.open')) document.body.style.overflow = '';
+}
+
+async function tryUnlock() {
+  const inp = $('#lockPin');
+  const err = $('#lockError');
+  if (!inp) return;
+  const pin = (inp.value || '').trim();
+  if (!/^\d{4,6}$/.test(pin)) { if (err) err.textContent = 'أدخل 4–6 أرقام'; return; }
+  if (now() < pinLockUntil) { if (err) err.textContent = 'محاولات كثيرة — انتظر قليلاً'; return; }
+  const stored = (() => { try { return localStorage.getItem(LS_PIN); } catch (e) { return ''; } })();
+  const h = await hashPin(pin);
+  if (h === stored) {
+    try { sessionStorage.setItem(SS_UNLOCK, '1'); } catch (e) {}
+    pinAttempts = 0;
+    inp.value = '';
+    if (err) err.textContent = '';
+    hideLock();
+    toast('مرحباً بك', 'ok', { duration: 1800 });
+  } else {
+    pinAttempts++;
+    if (err) err.textContent = 'الرمز غير صحيح';
+    const card = document.querySelector('.lock-card');
+    if (card) { card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); }
+    if (pinAttempts >= 5) {
+      pinLockUntil = now() + 30000;
+      pinAttempts = 0;
+      if (err) err.textContent = 'محاولات كثيرة — انتظر 30 ثانية';
+    }
+    inp.select();
+  }
+}
+
+async function setPin() {
+  const inp = $('#inPin');
+  if (!inp) return;
+  const pin = (inp.value || '').trim();
+  if (!/^\d{4,6}$/.test(pin)) { toast('الرمز يجب أن يكون 4–6 أرقام', 'warn', { duration: 5000 }); return; }
+  const h = await hashPin(pin);
+  try {
+    localStorage.setItem(LS_PIN, h);
+    sessionStorage.setItem(SS_UNLOCK, '1');
+  } catch (e) {}
+  inp.value = '';
+  renderPinUI();
+  toast('تم تفعيل رمز الحماية على هذا الجهاز', 'ok', { duration: 5000 });
+}
+
+function removePin() {
+  confirmDialog({
+    title: 'إزالة رمز الحماية',
+    sub: 'هذا الجهاز فقط',
+    body: 'سيُفتح الموقع بدون رمز على هذا الجهاز. البيانات لا تتأثر.',
+    okText: 'إزالة الرمز',
+    danger: true,
+    onOk: () => {
+      try {
+        localStorage.removeItem(LS_PIN);
+        sessionStorage.setItem(SS_UNLOCK, '1');
+      } catch (e) {}
+      renderPinUI();
+      toast('تمت إزالة رمز الحماية', 'warn');
+    }
+  });
+}
+
+function changePin() {
+  const box = $('#pinNotSet');
+  const setBox = $('#pinSet');
+  if (box) box.classList.remove('hidden');
+  if (setBox) setBox.classList.add('hidden');
+  const inp = $('#inPin');
+  if (inp) { inp.value = ''; inp.focus(); }
+}
+
+function lockNow() {
+  try { sessionStorage.removeItem(SS_UNLOCK); } catch (e) {}
+  closeModal('modalSettings');
+  showLock();
+}
+
+function renderPinUI() {
+  const set = hasPin();
+  const a = $('#pinNotSet');
+  const b = $('#pinSet');
+  if (a) a.classList.toggle('hidden', set);
+  if (b) b.classList.toggle('hidden', !set);
+}
+
+/* ============================================================
    14. الأحداث
    ============================================================ */
 function bindEvents() {
@@ -3995,6 +4186,11 @@ function bindEvents() {
         break;
       case 'doImport': doImport(); break;
       case 'openSettings': openSettings(); break;
+      case 'unlock': tryUnlock(); break;
+      case 'setPin': setPin(); break;
+      case 'removePin': removePin(); break;
+      case 'changePin': changePin(); break;
+      case 'lockNow': lockNow(); break;
       case 'openScanner': openScanner(); break;
       case 'qrManualSubmit': qrManualSubmit(); break;
       case 'studentQR': openStudentQR(currentInfoId); break;
@@ -4063,6 +4259,12 @@ function bindEvents() {
   $('#ckInput').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); if (ckSelectedId) ckSubmit(); }
   });
+  const lockPin = $('#lockPin');
+  if (lockPin) {
+    lockPin.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); tryUnlock(); }
+    });
+  }
 
   $('#weekSelect').addEventListener('change', function (e) {
     setActiveWeek(e.target.value);
@@ -4149,6 +4351,11 @@ function init() {
 
   if (checkinMode) {
     initCheckin();
+    return;
+  }
+
+  if (hasPin() && !pinUnlocked()) {
+    showLock();
     return;
   }
 
