@@ -999,8 +999,8 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
           <div class="box" id="initialAttBox">
             <label class="check">
               <input type="checkbox" id="markPresentNow" checked>
-              <span>تسجيله <b style="color:#34d399">حاضراً ✓</b> في الخميس المحدد
-                <small>إذا لم يُحدَّد، سيبقى «لم يسجل» ويمكن تفقده لاحقاً.</small>
+              <span>تسجيله <b style="color:#34d399">حاضراً ✓</b> في آخر خميس
+                <small>سيُحسب غائباً تلقائياً في كل الجلسات السابقة. إذا لم يُحدَّد، سيبقى «لم يسجل» في آخر خميس.</small>
               </span>
             </label>
           </div>
@@ -1096,13 +1096,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
             <label class="check">
               <input type="checkbox" id="autoAbsentPrev" checked>
               <span>إغلاق الأسابيع السابقة تلقائياً
-                <small>كل من لم يُسجَّل حضوره في الأسابيع السابقة سيُحسب <b style="color:#fca5a5">غائباً ✗</b>.</small>
-              </span>
-            </label>
-            <label class="check" style="margin-top:9px">
-              <input type="checkbox" id="includeNewStudents">
-              <span>احتساب الطلاب الجدد في الأسابيع السابقة
-                <small>افتراضياً يُستثنى من انضم بعد ذلك الأسبوع حتى لا يُظلم.</small>
+                <small>كل من لم يُسجَّل حضوره في الأسابيع السابقة سيُحسب <b style="color:#fca5a5">غائباً ✗</b> — بما في ذلك من انضم لاحقاً.</small>
               </span>
             </label>
           </div>
@@ -1249,7 +1243,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
       <div class="tab-pane" id="tab-danger">
         <div class="box" style="margin-bottom:10px">
           <div class="box-title"><i class="fa-solid fa-wand-magic-sparkles"></i>إغلاق الأسابيع غير المكتملة</div>
-          <p class="note" style="margin-top:0">كل من لم يُسجَّل حضوره حتى الأسبوع المحدد سيُحسب <b style="color:#fca5a5">غائباً ✗</b>. الطلاب الذين انضموا بعد الأسبوع لا يُحتسبون.</p>
+          <p class="note" style="margin-top:0">كل من لم يُسجَّل حضوره حتى الأسبوع المحدد سيُحسب <b style="color:#fca5a5">غائباً ✗</b>، بما في ذلك من انضم لاحقاً — ليكون الجميع على نفس عدد الجلسات.</p>
           <button class="btn btn-gold btn-sm" style="margin-top:9px" data-action="fillAll"><i class="fa-solid fa-check-double"></i>تطبيق على كل الأسابيع</button>
         </div>
         <div class="box" style="margin-bottom:10px">
@@ -1460,7 +1454,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 /* ============================================================
    0. ثوابت وأدوات
    ============================================================ */
-const VERSION = '2.4.0';
+const VERSION = '2.4.1';
 const LS_STATE = 'bukhari.state.v2';
 const LS_BACKUPS = 'bukhari.backups.v2';
 const LS_CLIENT = 'bukhari.clientId';
@@ -1784,13 +1778,17 @@ function getNextSerial() {
   return arr.reduce((m, s) => Math.max(m, Number(s.serialNumber) || 0), 0) + 1;
 }
 function studentWeeks(s) {
-  const joined = Number(s.createdAt) || 0;
-  return weeksSorted().filter(w => {
-    if (!joined || !w.date) return true;
-    const end = new Date(w.date + 'T23:59:59').getTime();
-    if (isNaN(end)) return true;
-    return end >= joined || !!(s.attendance && s.attendance[w.id]);
+  return weeksSorted();
+}
+function pastAttendanceMap() {
+  const t = now();
+  const all = weeksSorted();
+  const latest = all.length ? all[all.length - 1] : null;
+  const att = {};
+  all.forEach(w => {
+    if (!latest || w.id !== latest.id) att[w.id] = { s: 'absent', t: t };
   });
+  return att;
 }
 function initActiveWeek() {
   let saved = null;
@@ -2548,9 +2546,10 @@ function handleStudentSubmit(e) {
   if (dup) { toast('هذا الاسم مسجّل مسبقاً برقم #' + dup.serialNumber, 'warn', { duration: 6000 }); return; }
 
   const serial = getNextSerial();
-  const att = {};
-  const wk = activeWeek();
-  if (wk && $('#markPresentNow').checked) att[wk.id] = { s: 'present', t: now() };
+  const att = pastAttendanceMap();
+  const allWeeks = weeksSorted();
+  const latest = allWeeks.length ? allWeeks[allWeeks.length - 1] : null;
+  if (latest && $('#markPresentNow').checked) att[latest.id] = { s: 'present', t: now() };
 
   const s = {
     id: uid('stu'), serialNumber: serial,
@@ -2572,33 +2571,24 @@ function openInfo(sid) {
   if (!s) return;
   currentInfoId = sid;
   const weeks = weeksSorted();
-  const joined = Number(s.createdAt) || 0;
   let p = 0, a = 0;
   const rows = weeks.map(w => {
     const st = recStatus(s.attendance ? s.attendance[w.id] : null);
-    const preJoin = !!(joined && w.date && new Date(w.date + 'T23:59:59').getTime() < joined && !(s.attendance && s.attendance[w.id]));
-    if (!preJoin) {
-      if (st === 'present') p++;
-      if (st === 'absent') a++;
-    }
-    const tag = preJoin ? '<span class="tag n">قبل الانضمام</span>' :
-      st === 'present' ? '<span class="tag p">حاضر ✓</span>' :
+    if (st === 'present') p++;
+    if (st === 'absent') a++;
+    const tag = st === 'present' ? '<span class="tag p">حاضر ✓</span>' :
       st === 'absent' ? '<span class="tag a">غائب ✗</span>' : '<span class="tag n">لم يسجل</span>';
     const tm = attTiming(s, w);
     return '<div class="hist-row"><div><div class="hl">' + esc(w.label) + '</div><div class="hd">' + esc(w.date) + '</div>' +
       (tm ? '<div class="htime">' + esc(tm.title) + '</div>' : '') +
       '</div>' + tag + '</div>';
   }).reverse().join('');
-  const eligible = studentWeeks(s).length;
+  const eligible = weeks.length;
   const pct = eligible ? Math.round((p / eligible) * 100) : 0;
 
   let streak = 0;
   for (let i = weeks.length - 1; i >= 0; i--) {
-    const w = weeks[i];
-    const rec = s.attendance ? s.attendance[w.id] : null;
-    const preJoin = !!(joined && w.date && new Date(w.date + 'T23:59:59').getTime() < joined && !rec);
-    if (preJoin) continue;
-    const st = recStatus(rec);
+    const st = recStatus(s.attendance ? s.attendance[weeks[i].id] : null);
     if (st === 'absent') streak++;
     else if (st === 'pending') continue;
     else break;
@@ -2653,7 +2643,6 @@ function openWeekModal() {
   $('#inWeekDate').value = last && last.date ? addDaysISO(last.date, 7) : nextThursdayISO();
   $('#inWeekStart').value = last && last.startTime ? last.startTime : '';
   $('#autoAbsentPrev').checked = true;
-  $('#includeNewStudents').checked = false;
   openModal('modalWeek');
 }
 
@@ -2704,7 +2693,7 @@ function handleWeekSubmit(e) {
   const prevWeeks = weeksSorted();
   let filled = 0;
   if ($('#autoAbsentPrev').checked && prevWeeks.length) {
-    filled = fillAbsences(prevWeeks, $('#includeNewStudents').checked);
+    filled = fillAbsences(prevWeeks);
   }
   const nextNum = prevWeeks.reduce((m, w) => Math.max(m, w.weekNumber || 0), 0) + 1;
   const id = 'week_' + nextNum + '_' + now().toString(36);
@@ -2723,13 +2712,11 @@ function handleWeekSubmit(e) {
   toast('تم بدء ' + label + ' (' + date + ')' + (filled ? ' • أُغلق ' + filled + ' سجل غياب' : ''), 'ok', { duration: 6000 });
 }
 
-function fillAbsences(weeksArr, includeNewStudents) {
+function fillAbsences(weeksArr) {
   let changed = 0;
   const t = now();
   weeksArr.forEach(w => {
-    const wd = w.date ? new Date(w.date + 'T00:00:00').getTime() : 0;
     studentsSorted().forEach(s => {
-      if (!includeNewStudents && wd && s.createdAt && s.createdAt > wd + DAY - 1) return;
       if (!s.attendance) s.attendance = {};
       const cur = recStatus(s.attendance[w.id]);
       if (cur === 'pending') {
@@ -2778,7 +2765,7 @@ function fillAllPast() {
     body: 'كل من لم يُسجَّل حضوره في هذه الأسابيع سيُحسب غائباً ✗. الطلاب الذين انضموا بعد الأسبوع لا يُحتسبون. لا يمكن التراجع دفعة واحدة، لكن يمكنك تعديل أي خلية يدوياً.',
     okText: 'تأكيد الملء',
     onOk: () => {
-      const n = fillAbsences(target, false);
+      const n = fillAbsences(target);
       saveState(); render();
       closeModal('modalSettings');
       toast(n ? 'تم ملء ' + n + ' سجل غياب' : 'لا توجد خانات غير مسجلة', n ? 'ok' : 'info');
@@ -3002,7 +2989,7 @@ function doImport() {
     state.students.push({
       id: uid('stu'), serialNumber: serial++,
       firstName: firstName, fatherName: fatherName, lastName: lastName, fullName: fullName,
-      attendance: {}, createdAt: now(), updatedAt: now(), deleted: false
+      attendance: pastAttendanceMap(), createdAt: now(), updatedAt: now(), deleted: false
     });
     added++;
   });
