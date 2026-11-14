@@ -3223,6 +3223,19 @@ var HUMAN_SHEET = 'سجل الحضور التراكمي';
 function doGet(e) {
   var p = (e && e.parameter) || {};
   var cb = (p.callback || '').replace(/[^A-Za-z0-9_$.]/g, '');
+  if (p.action === 'status') {
+    return respondJson_(backupStatus_(), cb);
+  }
+  if (p.action === 'auth') {
+    DriveApp.getRootFolder();
+    ensureBackupTrigger_();
+    return respondJson_(backupStatus_(), cb);
+  }
+  if (p.action === 'backupnow') {
+    var bname = weeklyBackup();
+    return respondJson_({ ok: true, file: bname, status: backupStatus_() }, cb);
+  }
+  ensureBackupTrigger_();
   var state = readState_();
   var v = (state && state.updatedAt) ? String(state.updatedAt) : '';
   var payload;
@@ -3243,6 +3256,7 @@ function doPost(e) {
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
+    ensureBackupTrigger_();
     var body = JSON.parse(e.postData.contents);
     if (body.state) {
       writeState_(body.state);
@@ -3326,14 +3340,6 @@ function rec_(v) {
   return v.s || 'pending';
 }
 
-function weekEligible_(s, w) {
-  var joined = Number(s.createdAt) || 0;
-  if (!joined || !w.date) return true;
-  var end = new Date(w.date + 'T23:59:59').getTime();
-  if (isNaN(end)) return true;
-  return end >= joined || !!((s.attendance || {})[w.id]);
-}
-
 function rebuildSheet_(state) {
   var weeks = (state.weeks || []).filter(function (w) { return !w.deleted; })
     .sort(function (a, b) { return (a.weekNumber || 0) - (b.weekNumber || 0); });
@@ -3355,8 +3361,7 @@ function rebuildSheet_(state) {
       else if (st === 'absent') { a++; cells.push('✗ غائب'); }
       else { cells.push('—'); }
     });
-    var eligible = weeks.filter(function (w) { return weekEligible_(s, w); }).length;
-    var pct = eligible ? Math.round(p / eligible * 100) + '%' : '0%';
+    var pct = weeks.length ? Math.round(p / weeks.length * 100) + '%' : '0%';
     rows.push([s.serialNumber, s.firstName, s.fatherName, s.lastName, s.fullName, p, a, pct].concat(cells));
   });
 
@@ -3410,6 +3415,116 @@ function rebuildSheetV1_(body) {
     Object.keys(s.attendance || {}).forEach(function (k) { att[k] = { s: s.attendance[k] }; });
     return Object.assign({}, s, { attendance: att });
   }) });
+}
+
+/* ================= النسخ الاحتياطي الأسبوعي (كل خميس 11 مساءً) ================= */
+
+function ensureBackupTrigger_() {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty('BACKUP_TRIGGER_SET') === '1') return;
+    var exists = ScriptApp.getProjectTriggers().some(function (t) {
+      return t.getHandlerFunction() === 'weeklyBackup';
+    });
+    if (!exists) {
+      ScriptApp.newTrigger('weeklyBackup')
+        .timeBased()
+        .onWeekDay(ScriptApp.WeekDay.THURSDAY)
+        .atHour(23)
+        .create();
+    }
+    props.setProperty('BACKUP_TRIGGER_SET', '1');
+  } catch (e) {
+    // الصلاحيات قد لا تكون ممنوحة بعد؛ سنحاول في الطلب القادم
+  }
+}
+
+function backupStatus_() {
+  var res = { ok: true, triggers: [], folder: null, files: [] };
+  try {
+    res.triggers = ScriptApp.getProjectTriggers().map(function (t) {
+      return { fn: t.getHandlerFunction(), type: String(t.getEventType()) };
+    });
+  } catch (e) { res.triggerError = String(e); }
+  try {
+    var fid = PropertiesService.getScriptProperties().getProperty('BACKUP_FOLDER_ID');
+    if (fid) {
+      var folder = DriveApp.getFolderById(fid);
+      res.folder = folder.getName();
+      var it = folder.getFiles();
+      var list = [];
+      while (it.hasNext()) {
+        var f = it.next();
+        if (f.getName().indexOf('bukhari-backup-') === 0) {
+          list.push({ name: f.getName(), size: f.getSize(), created: f.getDateCreated().toISOString() });
+        }
+      }
+      list.sort(function (a, b) { return b.created.localeCompare(a.created); });
+      res.files = list.slice(0, 5);
+    }
+  } catch (e) { res.driveError = String(e); }
+  return res;
+}
+
+function weeklyBackup() {
+  var state = readState_();
+  if (!state) return 'no-state';
+  var ss = ss_();
+  var tz = ss.getSpreadsheetTimeZone();
+  var stamp = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd_HH-mm');
+  var props = PropertiesService.getScriptProperties();
+  var folder = null;
+  var fid = props.getProperty('BACKUP_FOLDER_ID');
+  if (fid) {
+    try { folder = DriveApp.getFolderById(fid); } catch (e) { folder = null; }
+  }
+  if (!folder) {
+    var it = DriveApp.getFoldersByName('نسخ احتياطي - مجلس البخاري');
+    folder = it.hasNext() ? it.next() : DriveApp.createFolder('نسخ احتياطي - مجلس البخاري');
+    props.setProperty('BACKUP_FOLDER_ID', folder.getId());
+  }
+  var payload = JSON.stringify({
+    app: 'bukhari-attendance',
+    version: '2.5.0',
+    exportedAt: new Date().toISOString(),
+    state: state
+  }, null, 1);
+  var name = 'bukhari-backup-' + stamp + '.json';
+  var file = folder.createFile(name, payload, MimeType.PLAIN_TEXT);
+  logBackup_(ss, stamp, name, file.getSize());
+  var files = [];
+  var fit = folder.getFiles();
+  while (fit.hasNext()) {
+    var f = fit.next();
+    if (f.getName().indexOf('bukhari-backup-') === 0) files.push(f);
+  }
+  files.sort(function (a, b) { return b.getDateCreated().getTime() - a.getDateCreated().getTime(); });
+  for (var i = 12; i < files.length; i++) {
+    try { files[i].setTrashed(true); } catch (e) {}
+  }
+  return name;
+}
+
+function logBackup_(ss, stamp, name, size) {
+  var sh = ss.getSheetByName('سجل النسخ الاحتياطي');
+  if (!sh) {
+    sh = ss.insertSheet('سجل النسخ الاحتياطي');
+    sh.setRightToLeft(true);
+  }
+  if (sh.getLastRow() === 0) {
+    sh.appendRow(['التاريخ', 'الملف', 'الحجم (بايت)']);
+    sh.getRange(1, 1, 1, 3).setFontWeight('bold').setBackground('#064e3b').setFontColor('#ffffff');
+  }
+  sh.appendRow([stamp, name, size]);
+}
+
+function respondJson_(obj, cb) {
+  var out = JSON.stringify(obj);
+  if (cb) {
+    return ContentService.createTextOutput(cb + '(' + out + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JSON);
 }`;
 
 function copyScript() {
