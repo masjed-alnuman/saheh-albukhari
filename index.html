@@ -1219,6 +1219,16 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
             </label>
           </div>
           <div class="box">
+            <div class="box-title"><i class="fa-solid fa-key"></i>مفتاح المزامنة (حماية الشيت)</div>
+            <p class="note" style="margin-top:0">إذا فعّلته، لن يقبل الشيت أي تعديل من جهاز لا يملك نفس المفتاح. صفحة QR لا تحتاجه.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <input class="inp" id="inSyncKey" dir="ltr" placeholder="bk_..." style="flex:1;min-width:150px" autocomplete="off">
+              <button class="btn btn-ghost btn-sm" data-action="genSyncKey"><i class="fa-solid fa-wand-magic-sparkles"></i>توليد</button>
+              <button class="btn btn-primary btn-sm" data-action="saveSyncKey"><i class="fa-solid fa-check"></i>حفظ</button>
+            </div>
+            <p class="note" id="syncKeyState">—</p>
+          </div>
+          <div class="box">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
               <div>
                 <div style="font-size:11.5px;font-weight:800;color:#fff">حالة المزامنة</div>
@@ -1521,10 +1531,11 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 /* ============================================================
    0. ثوابت وأدوات
    ============================================================ */
-const VERSION = '2.5.0';
+const VERSION = '2.6.0';
 const LS_STATE = 'bukhari.state.v2';
 const LS_BACKUPS = 'bukhari.backups.v2';
 const LS_CLIENT = 'bukhari.clientId';
+const LS_SYNC_KEY = 'bukhari.syncKey.v1';
 const LS_ACTIVE = 'bukhari.activeWeek.v2';
 const LS_RANGE = 'bukhari.range.v3';
 const LS_LAST_EXPORT = 'bukhari.lastExport.v3';
@@ -1655,7 +1666,7 @@ let pollTimer = null;
 let searchTimer = null;
 const startCache = new Map();
 
-const syncSt = { readOk: null, lastPull: 0, lastPush: 0, lastErr: '', busy: false, remoteV: '' };
+const syncSt = { readOk: null, lastPull: 0, lastPush: 0, lastErr: '', busy: false, remoteV: '', hasKey: null };
 
 function getClientId() {
   try {
@@ -1663,6 +1674,16 @@ function getClientId() {
     if (!id) { id = 'dev_' + Math.random().toString(36).slice(2, 10); localStorage.setItem(LS_CLIENT, id); }
     return id;
   } catch (e) { return 'dev_temp'; }
+}
+
+function getSyncKey() {
+  try { return localStorage.getItem(LS_SYNC_KEY) || ''; } catch (e) { return ''; }
+}
+function setSyncKey(v) {
+  try {
+    if (v) localStorage.setItem(LS_SYNC_KEY, v);
+    else localStorage.removeItem(LS_SYNC_KEY);
+  } catch (e) {}
 }
 
 function defaultState() {
@@ -1688,7 +1709,8 @@ function createInitialWeek(s) {
       startTime: '',
       createdAt: now(),
       updatedAt: now(),
-      deleted: false
+      deleted: false,
+      isDefault: true
     });
   }
   return s;
@@ -1733,7 +1755,8 @@ function migrate(raw) {
       startTime: /^\d{1,2}:\d{2}$/.test(String(w.startTime || '')) ? String(w.startTime) : '',
       createdAt: Number(w.createdAt) || now(),
       updatedAt: Number(w.updatedAt) || 0,
-      deleted: !!w.deleted
+      deleted: !!w.deleted,
+      isDefault: !!w.isDefault
     });
   });
 
@@ -1922,6 +1945,7 @@ function buildPayload() {
     app: 'bukhari-attendance',
     version: VERSION,
     clientId: state.clientId,
+    adminKey: getSyncKey(),
     updatedAt: now(),
     state: state,
     weeks: weeks,
@@ -1961,6 +1985,7 @@ async function pullState(manual) {
     if (!res || !res.ok) throw new Error('bad-response');
     syncSt.readOk = true;
     syncSt.lastErr = '';
+    if (typeof res.hasKey !== 'undefined') syncSt.hasKey = !!res.hasKey;
     if (res.unchanged) {
       syncSt.lastPull = now();
       renderSyncUI();
@@ -2047,8 +2072,12 @@ function mergeStates(local, remote) {
   (remote.weeks || []).forEach(r => {
     const l = wmap.get(r.id);
     if (!l) { wmap.set(r.id, r); return; }
-    const newer = (r.updatedAt || 0) > (l.updatedAt || 0) ? r : l;
+    let newer;
+    if (l.isDefault && !r.isDefault) newer = r;
+    else if (r.isDefault && !l.isDefault) newer = l;
+    else newer = (r.updatedAt || 0) > (l.updatedAt || 0) ? r : l;
     wmap.set(r.id, Object.assign({}, l, newer, {
+      isDefault: !!(l.isDefault && r.isDefault),
       createdAt: Math.min(l.createdAt || Infinity, r.createdAt || Infinity) || now(),
       updatedAt: Math.max(l.updatedAt || 0, r.updatedAt || 0)
     }));
@@ -2248,7 +2277,10 @@ function renderSyncUI() {
   let subTxt = 'البيانات محفوظة على هذا الجهاز فقط';
 
   if (url) {
-    if (syncSt.lastPull) {
+    if (syncSt.hasKey && !getSyncKey()) {
+      cls = 'dot'; txt = 'الشيت محمي — أدخل مفتاح المزامنة'; clr = 'var(--amber)';
+      subTxt = 'الإعدادات ← المزامنة ← مفتاح المزامنة';
+    } else if (syncSt.lastPull) {
       cls = 'dot ok live'; txt = state.settings.autoSync ? 'مزامنة تلقائية مفعّلة' : 'مرتبط يدوياً';
       clr = 'var(--em-2)';
       subTxt = 'آخر تحديث ' + hhmmss(syncSt.lastPull) + (syncSt.lastPush ? ' • آخر رفع ' + hhmmss(syncSt.lastPush) : '');
@@ -2480,9 +2512,10 @@ function setAttendance(sid, wid, st, opts) {
 
   s.attendance[wid] = { s: st, t: now() };
   s.updatedAt = now();
+  if (w.isDefault) { w.isDefault = false; w.updatedAt = now(); }
   if (!opts.noUndo) pushUndo({ type: 'att', sid: sid, wid: wid, prev: prev, had: had });
 
-  saveState();
+  saveState({ noSync: !!opts.noPush });
 
   if (prefs.filter !== 'all' || prefs.query.trim()) render();
   else {
@@ -2741,6 +2774,7 @@ function handleWeekEditSubmit(e) {
   w.label = label;
   w.date = date;
   w.startTime = $('#editWeekStart').value || '';
+  w.isDefault = false;
   w.updatedAt = now();
   saveState();
   render();
@@ -2767,7 +2801,7 @@ function handleWeekSubmit(e) {
   state.weeks.push({
     id: id, weekNumber: nextNum, label: label, date: date,
     startTime: $('#inWeekStart').value || '',
-    createdAt: now(), updatedAt: now(), deleted: false
+    createdAt: now(), updatedAt: now(), deleted: false, isDefault: false
   });
   setActiveWeek(id);
   saveState(); render();
@@ -3137,6 +3171,10 @@ function openSettings() {
   renderPinUI();
   $('#inWebhook').value = state.settings.webhookUrl || '';
   $('#autoSyncToggle').checked = state.settings.autoSync !== false;
+  const keyInput = $('#inSyncKey');
+  if (keyInput) keyInput.value = getSyncKey();
+  const keyState = $('#syncKeyState');
+  if (keyState) keyState.textContent = getSyncKey() ? 'المفتاح محفوظ على هذا الجهاز.' : 'لا يوجد مفتاح على هذا الجهاز.';
   $('#syncInterval').value = String(state.settings.interval || 15);
   $('#clientIdTag').textContent = state.clientId;
   $('#clientTag').textContent = state.clientId;
@@ -3227,7 +3265,9 @@ function doGet(e) {
     return respondJson_(backupStatus_(), cb);
   }
   if (p.action === 'auth') {
-    DriveApp.getRootFolder();
+    ScriptApp.getProjectTriggers();
+    var permTest = DriveApp.createFolder('_bukhari_perm_test_' + Date.now());
+    permTest.setTrashed(true);
     ensureBackupTrigger_();
     return respondJson_(backupStatus_(), cb);
   }
@@ -3235,14 +3275,38 @@ function doGet(e) {
     var bname = weeklyBackup();
     return respondJson_({ ok: true, file: bname, status: backupStatus_() }, cb);
   }
+  if (p.action === 'readbackup') {
+    var rb = null;
+    try { rb = JSON.parse(readChunks_(backupSheet_())); } catch (e) {}
+    return respondJson_({
+      ok: true,
+      has: !!rb,
+      students: rb && rb.students ? rb.students.length : 0,
+      weeks: rb && rb.weeks ? rb.weeks.length : 0,
+      updatedAt: rb ? rb.updatedAt : 0
+    }, cb);
+  }
+  if (p.action === 'restorebackup') {
+    var rb2 = null;
+    try { rb2 = JSON.parse(readChunks_(backupSheet_())); } catch (e) {}
+    if (!rb2) return respondJson_({ ok: false, error: 'no-backup' }, cb);
+    writeChunks_(stateSheet_(), JSON.stringify(rb2));
+    rebuildSheet_(rb2);
+    return respondJson_({
+      ok: true,
+      students: rb2.students ? rb2.students.length : 0,
+      weeks: rb2.weeks ? rb2.weeks.length : 0
+    }, cb);
+  }
   ensureBackupTrigger_();
   var state = readState_();
   var v = (state && state.updatedAt) ? String(state.updatedAt) : '';
+  var hasKey = !!PropertiesService.getScriptProperties().getProperty('ADMIN_KEY_HASH');
   var payload;
   if (p.v && p.v === v) {
-    payload = { ok: true, unchanged: true, v: v, serverTime: Date.now() };
+    payload = { ok: true, unchanged: true, v: v, hasKey: hasKey, serverTime: Date.now() };
   } else {
-    payload = { ok: true, state: state, v: v, serverTime: Date.now() };
+    payload = { ok: true, state: state, v: v, hasKey: hasKey, serverTime: Date.now() };
   }
   var out = JSON.stringify(payload);
   if (cb) {
@@ -3258,6 +3322,12 @@ function doPost(e) {
     lock.waitLock(20000);
     ensureBackupTrigger_();
     var body = JSON.parse(e.postData.contents);
+    if (body.action === 'checkin') {
+      return handleCheckin_(body);
+    }
+    if (!adminKeyOk_(body)) {
+      return respondJson_({ ok: false, error: 'unauthorized' });
+    }
     if (body.state) {
       writeState_(body.state);
       rebuildSheet_(body.state);
@@ -3467,6 +3537,7 @@ function backupStatus_() {
 }
 
 function weeklyBackup() {
+  ensureBackupTrigger_();
   var state = readState_();
   if (!state) return 'no-state';
   var ss = ss_();
@@ -3525,6 +3596,75 @@ function respondJson_(obj, cb) {
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ---------- مفتاح المزامنة (حماية الشيت) ---------- */
+
+function keyHash_(key) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(key), Utilities.Charset.UTF_8);
+  return bytes.map(function (b) {
+    return ('0' + (b & 0xff).toString(16)).slice(-2);
+  }).join('');
+}
+
+function adminKeyOk_(body) {
+  var props = PropertiesService.getScriptProperties();
+  var stored = props.getProperty('ADMIN_KEY_HASH') || '';
+  var provided = body && body.adminKey ? String(body.adminKey) : '';
+  if (!stored) {
+    if (provided) props.setProperty('ADMIN_KEY_HASH', keyHash_(provided));
+    return true; // متوافق للخلف حتى يُضبط المفتاح
+  }
+  return !!provided && keyHash_(provided) === stored;
+}
+
+function handleCheckin_(body) {
+  var state = readState_();
+  if (!state) return respondJson_({ ok: false, error: 'no-state' });
+  var weeks = (state.weeks || []).filter(function (w) { return !w.deleted; })
+    .sort(function (a, b) { return (a.weekNumber || 0) - (b.weekNumber || 0); });
+  var wk = weeks.length ? weeks[weeks.length - 1] : null;
+  if (!wk) return respondJson_({ ok: false, error: 'no-week' });
+  var s = null;
+  (state.students || []).forEach(function (x) {
+    if (x.id === body.studentId && !x.deleted) s = x;
+  });
+  if (!s) return respondJson_({ ok: false, error: 'no-student' });
+  if (!s.attendance) s.attendance = {};
+  var prev = s.attendance[wk.id];
+  var already = !!(prev && ((prev.s === 'present') || prev === 'present'));
+  var at = Number(body.at) || Date.now();
+  if (!already) {
+    s.attendance[wk.id] = { s: 'present', t: at };
+    s.updatedAt = Date.now();
+    state.updatedAt = Date.now();
+    writeChunks_(stateSheet_(), JSON.stringify(state));
+    rebuildSheet_(state);
+  }
+  return respondJson_({
+    ok: true,
+    already: already,
+    at: already && prev && prev.t ? prev.t : at,
+    student: s.fullName,
+    week: wk.label
+  });
+}
+
+/* تشغيلها مرة واحدة من المحرّر لمنح صلاحية Triggers وإنشاء المهمة الأسبوعية */
+function installBackupTrigger() {
+  var props = PropertiesService.getScriptProperties();
+  var exists = ScriptApp.getProjectTriggers().some(function (t) {
+    return t.getHandlerFunction() === 'weeklyBackup';
+  });
+  if (!exists) {
+    ScriptApp.newTrigger('weeklyBackup')
+      .timeBased()
+      .onWeekDay(ScriptApp.WeekDay.THURSDAY)
+      .atHour(23)
+      .create();
+  }
+  props.setProperty('BACKUP_TRIGGER_SET', '1');
+  return 'installed';
 }`;
 
 function copyScript() {
@@ -4034,15 +4174,30 @@ function ckPick(sid) {
   renderCkResults();
 }
 
-function ckSubmit() {
-  const s = getStudent(ckSelectedId);
+function postCheckin(studentId) {
+  const url = syncUrl();
+  if (!url) return;
+  try {
+    fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'checkin', studentId: studentId, at: now() })
+    }).catch(() => {});
+  } catch (e) {}
+}
+
+function ckSubmit() {  const s = getStudent(ckSelectedId);
   if (!s) { toast('اختر اسمك من القائمة أولاً', 'warn'); return; }
   const wk = activeWeek();
   if (!wk) { toast('لا يوجد مجلس مسجّل بعد — راجع المشرف', 'warn'); return; }
   const prev = recStatus(s.attendance ? s.attendance[wk.id] : null);
   const already = prev === 'present';
   ckDone = true;
-  if (!already) setAttendance(s.id, wk.id, 'present', { silent: true });
+  if (!already) {
+    postCheckin(s.id);
+    setAttendance(s.id, wk.id, 'present', { silent: true, noPush: true });
+  }
   const rec = recOf(s.attendance ? s.attendance[wk.id] : null);
   const tm = attTiming(s, wk);
   const when = rec && rec.t ? fmtTs(rec.t) : fmtTs(Date.now());
@@ -4264,6 +4419,34 @@ function renderPinUI() {
   if (b) b.classList.toggle('hidden', !set);
 }
 
+/* ---------- مفتاح المزامنة ---------- */
+function genSyncKey() {
+  const arr = new Uint8Array(16);
+  if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(arr);
+  else for (let i = 0; i < 16; i++) arr[i] = Math.floor(Math.random() * 256);
+  const key = 'bk_' + Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+  const inp = $('#inSyncKey');
+  if (inp) inp.value = key;
+  const st = $('#syncKeyState');
+  if (st) st.textContent = 'اضغط «حفظ» لتفعيله، وانسخه لباقي أجهزة المشرفين.';
+}
+
+function saveSyncKey() {
+  const inp = $('#inSyncKey');
+  if (!inp) return;
+  const v = (inp.value || '').trim();
+  if (v && v.length < 12) { toast('المفتاح قصير — استخدم زر «توليد»', 'warn', { duration: 5000 }); return; }
+  setSyncKey(v);
+  saveState({ noSync: true });
+  renderSyncUI();
+  const st = $('#syncKeyState');
+  if (st) st.textContent = v
+    ? 'المفتاح محفوظ على هذا الجهاز. تأكد من نفس المفتاح على باقي الأجهزة.'
+    : 'تمت إزالة المفتاح من هذا الجهاز.';
+  toast(v ? 'تم حفظ مفتاح المزامنة' : 'تمت إزالة مفتاح المزامنة', v ? 'ok' : 'warn');
+  if (v) syncNow(true);
+}
+
 /* ============================================================
    14. الأحداث
    ============================================================ */
@@ -4314,6 +4497,8 @@ function bindEvents() {
       case 'removePin': removePin(); break;
       case 'changePin': changePin(); break;
       case 'lockNow': lockNow(); break;
+      case 'genSyncKey': genSyncKey(); break;
+      case 'saveSyncKey': saveSyncKey(); break;
       case 'openScanner': openScanner(); break;
       case 'qrManualSubmit': qrManualSubmit(); break;
       case 'studentQR': openStudentQR(currentInfoId); break;
