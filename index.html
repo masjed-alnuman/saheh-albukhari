@@ -481,6 +481,12 @@ pre.code{
 .hist-side{display:flex;align-items:center;gap:6px;flex:none}
 .hist-edit{width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:#0b1411;color:var(--gold-2);display:grid;place-items:center;font-size:10px}
 .hist-edit:hover{border-color:var(--gold);color:#fff}
+.late-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.late-chips button{font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;border:1px solid var(--line);background:#0b1411;color:var(--muted)}
+.late-chips button:hover{border-color:var(--gold);color:#fff}
+.att-time-row{display:flex;align-items:center;justify-content:center;gap:3px;margin-top:2px}
+.att-edit{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);background:#0b1411;color:var(--gold-2);display:grid;place-items:center;font-size:8px;flex:none}
+.att-edit:hover{border-color:var(--gold);color:#fff}
 .tag{font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px}
 .tag.p{background:rgba(16,185,129,.15);color:var(--em-2)}
 .tag.a{background:rgba(239,68,68,.15);color:#fca5a5}
@@ -1560,15 +1566,26 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
             <input class="inp" id="attEditIn" type="time">
           </div>
           <div>
+            <label class="lbl" for="attEditLate">تأخير عن بداية الفترة الأولى (دقائق)</label>
+            <input class="inp" id="attEditLate" type="number" min="0" step="1" placeholder="مثال: 5">
+            <div class="late-chips">
+              <button type="button" data-action="attLate" data-min="0">0</button>
+              <button type="button" data-action="attLate" data-min="3">3</button>
+              <button type="button" data-action="attLate" data-min="5">5</button>
+              <button type="button" data-action="attLate" data-min="10">10</button>
+              <button type="button" data-action="attLate" data-min="15">15</button>
+            </div>
+          </div>
+          <div>
             <label class="lbl" for="attEditOut">وقت الخروج</label>
             <input class="inp" id="attEditOut" type="time">
           </div>
-          <div style="grid-column:1/-1">
+          <div>
             <label class="lbl" for="attEditMissed">الوقت الفائت يدوياً (دقائق)</label>
             <input class="inp" id="attEditMissed" type="number" min="0" step="1" placeholder="اتركه فارغاً للحساب التلقائي">
           </div>
         </div>
-        <p class="note">إذا عدّلت وقت الدخول، يُعاد حساب التأخير والفترات. إذا كتبت «الوقت الفائت»، يظهر هذا الرقم بدل الحساب التلقائي (0 = لا فائت).</p>
+        <p class="note">اكتب دقائق التأخير وينحسب وقت الدخول تلقائياً، أو عدّل وقت الدخول مباشرة. «الوقت الفائت» يظهر بدل الحساب التلقائي (0 = لا فائت).</p>
         <div class="box" id="attEditPreview" style="font-size:11.5px;color:var(--muted)"></div>
       </div>
       <div class="dlg-foot">
@@ -1687,7 +1704,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 /* ============================================================
    0. ثوابت وأدوات
    ============================================================ */
-const VERSION = '3.2.0';
+const VERSION = '3.2.1';
 const LS_STATE = 'bukhari.state.v2';
 const LS_BACKUPS = 'bukhari.backups.v2';
 const LS_CLIENT = 'bukhari.clientId';
@@ -2849,12 +2866,13 @@ function attCellHTML(s, w) {
   const timeHTML = timing
     ? '<div class="att-time ' + timing.cls + '" title="' + esc(timing.title) + '">' + esc(timing.text) + '</div>'
     : '';
+  const editBtn = '<button type="button" class="att-edit" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" title="تعديل وقت الحضور"><i class="fa-solid fa-pen"></i></button>';
   return '<td class="' + active + '">' +
     '<div class="att">' +
     '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="present" class="' + (st === 'present' ? 'on-p' : '') + '" title="حاضر" aria-label="حاضر"><i class="fa-solid fa-check"></i></button>' +
     '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="absent" class="' + (st === 'absent' ? 'on-a' : '') + '" title="غائب" aria-label="غائب"><i class="fa-solid fa-xmark"></i></button>' +
     '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="pending" class="' + (st === 'pending' ? 'on-x' : '') + '" title="لم يسجل" aria-label="لم يسجل"><i class="fa-solid fa-minus"></i></button>' +
-    '</div>' + badges + timeHTML + '</td>';
+    '</div>' + badges + '<div class="att-time-row">' + timeHTML + editBtn + '</div></td>';
 }
 
 function studentRowHTML(s) {
@@ -2994,7 +3012,9 @@ function cardHTML(s, wk) {
       '<span class="stu-num">#' + s.serialNumber + '</span>' +
       '<div class="stu-meta">' +
         '<h4>' + esc(s.fullName) + '</h4>' +
-        '<div class="mini">حضور ' + p + ' • غياب ' + a + (tinfo ? ' • <span class="att-time ' + tinfo.cls + '" style="display:inline;margin:0">' + esc(tinfo.text) + '</span>' : '') + '</div>' +
+        '<div class="mini">حضور ' + p + ' • غياب ' + a + (tinfo ? ' • <span class="att-time ' + tinfo.cls + '" style="display:inline;margin:0">' + esc(tinfo.text) + '</span>' : '') +
+          (wk ? ' <button type="button" class="link" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(wk.id) + '" style="font-size:10px;margin-inline-start:4px">تعديل الوقت</button>' : '') +
+        '</div>' +
         extra +
       '</div>' +
       '<button type="button" class="icon-btn" data-action="infoStudent" data-sid="' + esc(s.id) + '" title="السجل"><i class="fa-solid fa-circle-info"></i></button>' +
@@ -3311,7 +3331,7 @@ function openInfo(sid) {
   openModal('modalInfo');
 }
 
-let attEditSid = null, attEditWid = null;
+let attEditSid = null, attEditWid = null, attEditStart = '';
 function hhmmOfTs(ts) {
   if (!ts) return '';
   const d = new Date(Number(ts));
@@ -3339,27 +3359,58 @@ function openAttEdit(sid, wid) {
   attEditWid = w.id;
   const rec = recOf(s.attendance ? s.attendance[w.id] : null);
   const ps = weekPeriods(w);
+  const startHH = ps.length ? ps[0].startTime : (w.startTime || '');
+  attEditStart = startHH;
+  let late = '';
+  if (startHH && rec && rec.t) {
+    const startTs = tsOfDate(w.date, startHH);
+    if (startTs) late = Math.max(0, Math.round((rec.t - startTs) / 60000));
+  } else if (ps.length && ps[0] && !ps[0].future) {
+    late = ps[0].late || 0;
+  }
   $('#attEditSub').textContent = s.fullName + ' — ' + w.label + ' (' + w.date + ')';
-  $('#attEditIn').value = rec && rec.t ? hhmmOfTs(rec.t) : (ps.length ? ps[0].startTime : '');
+  $('#attEditIn').value = rec && rec.t ? hhmmOfTs(rec.t) : (startHH || '');
+  $('#attEditLate').value = late === '' ? '' : late;
   $('#attEditOut').value = rec && rec.out ? hhmmOfTs(rec.out) : '';
   $('#attEditMissed').value = rec && rec.missedOverride !== null && rec.missedOverride !== undefined ? rec.missedOverride : '';
   attEditPreview(s, w);
   openModal('modalAttEdit');
-  setTimeout(() => $('#attEditIn').focus(), 80);
+  setTimeout(() => $('#attEditLate').focus(), 80);
+}
+function setAttLate(n) {
+  const inp = $('#attEditLate');
+  if (!inp) return;
+  inp.value = String(n);
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
 }
 function handleAttEditSubmit(e) {
   e.preventDefault();
   const s = getStudent(attEditSid);
   const w = getWeek(attEditWid);
   if (!s || !w) return;
-  const inHH = validHHMM($('#attEditIn').value);
+  let inHH = validHHMM($('#attEditIn').value);
   const outHH = validHHMM($('#attEditOut').value);
+  const lateRaw = $('#attEditLate').value.trim();
   const missedRaw = $('#attEditMissed').value.trim();
   let missedOverride = null;
   if (missedRaw !== '') {
     const n = Number(missedRaw);
     if (!isFinite(n) || n < 0) { toast('الوقت الفائت يجب أن يكون رقماً 0 أو أكثر', 'warn'); return; }
     missedOverride = Math.round(n);
+  }
+  if (lateRaw !== '') {
+    const n = Number(lateRaw);
+    if (!isFinite(n) || n < 0) { toast('عدد دقائق التأخير غير صالح', 'warn'); return; }
+    if (attEditStart) {
+      const startTs = tsOfDate(w.date, attEditStart);
+      if (startTs) {
+        const t = startTs + Math.round(n) * 60000;
+        const d = new Date(t);
+        inHH = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+      }
+    } else if (missedOverride === null) {
+      missedOverride = Math.round(n);
+    }
   }
   if (!inHH && missedOverride === null) { toast('حدد وقت دخول أو وقتاً فائتاً يدوياً', 'warn'); return; }
   const inTs = inHH ? tsOfDate(w.date, inHH) : 0;
@@ -5793,6 +5844,7 @@ function bindEvents() {
         break;
       case 'infoStudent': openInfo(el.dataset.sid); break;
       case 'editAtt': openAttEdit(el.dataset.sid, el.dataset.wid); break;
+      case 'attLate': setAttLate(Number(el.dataset.min)); break;
       case 'editStudent':
         closeModal('modalInfo');
         openStudentModal(el.dataset.sid || currentInfoId);
@@ -5869,6 +5921,26 @@ function bindEvents() {
   $('#weekForm').addEventListener('submit', handleWeekSubmit);
   $('#weekEditForm').addEventListener('submit', handleWeekEditSubmit);
   $('#attEditForm').addEventListener('submit', handleAttEditSubmit);
+  if ($('#attEditLate')) {
+    $('#attEditLate').addEventListener('input', function () {
+      const n = Number(this.value);
+      if (this.value === '' || !isFinite(n) || n < 0 || !attEditStart) return;
+      const w = getWeek(attEditWid);
+      if (!w) return;
+      const startTs = tsOfDate(w.date, attEditStart);
+      if (!startTs) return;
+      const mins = Math.max(0, Math.min(1440, Math.round(n)));
+      const t = startTs + mins * 60000;
+      const d = new Date(t);
+      $('#attEditIn').value = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    });
+  }
+  if ($('#attEditIn')) {
+    $('#attEditIn').addEventListener('input', function () {
+      const late = $('#attEditLate');
+      if (late) late.value = '';
+    });
+  }
   $('#bulkWeeksForm').addEventListener('submit', handleBulkWeeksSubmit);
 
   $('#searchInput').addEventListener('input', function (e) {
