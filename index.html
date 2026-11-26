@@ -478,6 +478,9 @@ pre.code{
 .hist-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#07100d;border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:11.5px}
 .hist-row .hl{font-weight:700;color:#dbe7e2}
 .hist-row .hd{font-size:10px;color:var(--muted-2);direction:ltr}
+.hist-side{display:flex;align-items:center;gap:6px;flex:none}
+.hist-edit{width:24px;height:24px;border-radius:7px;border:1px solid var(--line);background:#0b1411;color:var(--gold-2);display:grid;place-items:center;font-size:10px}
+.hist-edit:hover{border-color:var(--gold);color:#fff}
 .tag{font-size:10px;font-weight:800;padding:1px 7px;border-radius:99px}
 .tag.p{background:rgba(16,185,129,.15);color:var(--em-2)}
 .tag.a{background:rgba(239,68,68,.15);color:#fca5a5}
@@ -957,6 +960,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
         <select id="weekSelect" aria-label="اختيار أسبوع التفقد"></select>
       </div>
       <button class="btn btn-gold btn-sm" data-action="openNewWeek"><i class="fa-solid fa-calendar-plus"></i>خميس جديد</button>
+      <button class="btn btn-ghost btn-sm" data-action="openBulkWeeks" title="توليد كل أيام الخميس بين تاريخين"><i class="fa-solid fa-calendar-days"></i><span class="lbl-add">توليد أسابيع</span></button>
       <button class="btn btn-primary btn-sm" data-action="openAddStudent"><i class="fa-solid fa-user-plus"></i><span class="lbl-add">طالب جديد</span></button>
       <button class="week-clock" id="weekClock" data-action="editWeekTime" title="وقت بدء المجلس — اضغط للتعديل">
         <i class="fa-regular fa-clock"></i>
@@ -1206,6 +1210,47 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
       <div class="dlg-foot">
         <button class="btn btn-primary" type="submit"><i class="fa-solid fa-plus"></i>بدء الأسبوع</button>
         <button class="btn btn-ghost" type="button" data-action="closeModal" data-modal="modalWeek">إلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======================= مودال: توليد أسابيع ======================= -->
+<div class="modal" id="modalBulkWeeks" role="dialog" aria-modal="true">
+  <div class="dialog" style="max-width:460px">
+    <div class="dlg-head">
+      <div class="dlg-ico gold"><i class="fa-solid fa-calendar-days"></i></div>
+      <div>
+        <h3>توليد أسابيع الخميس</h3>
+        <p>يُنشئ كل أيام الخميس بين التاريخين، ويتجاهل الموجود</p>
+      </div>
+      <button class="dlg-close" data-action="closeModal" data-modal="modalBulkWeeks"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="bulkWeeksForm">
+      <div class="dlg-body">
+        <div class="form-grid">
+          <div>
+            <label class="lbl" for="bulkStartDate">من تاريخ</label>
+            <input class="inp" id="bulkStartDate" type="date" required>
+          </div>
+          <div>
+            <label class="lbl" for="bulkEndDate">إلى تاريخ</label>
+            <input class="inp" id="bulkEndDate" type="date" required>
+          </div>
+          <div class="box" style="grid-column:1/-1">
+            <label class="check">
+              <input type="checkbox" id="bulkCopyTimes">
+              <span>نسخ أوقات آخر أسبوع للأسابيع الجديدة
+                <small>إذا لم تُحدَّد أوقات الفترتين بعد، اتركه فارغاً وأضفها لاحقاً من زر الساعة.</small>
+              </span>
+            </label>
+          </div>
+        </div>
+        <p class="note" style="margin-bottom:0">لا يسجّل حضوراً لأي طالب. تُرتَّب الأسابيع تلقائياً حسب التاريخ وتُعاد تسميتها «الأسبوع 1، 2، 3...».</p>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-wand-magic-sparkles"></i>توليد</button>
+        <button class="btn btn-ghost" type="button" data-action="closeModal" data-modal="modalBulkWeeks">إلغاء</button>
       </div>
     </form>
   </div>
@@ -1508,6 +1553,44 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
   </div>
 </div>
 
+<!-- ======================= مودال: تعديل وقت الحضور ======================= -->
+<div class="modal" id="modalAttEdit" role="dialog" aria-modal="true">
+  <div class="dialog" style="max-width:440px">
+    <div class="dlg-head">
+      <div class="dlg-ico gold"><i class="fa-solid fa-clock-rotate-left"></i></div>
+      <div>
+        <h3>تعديل وقت الحضور</h3>
+        <p id="attEditSub">—</p>
+      </div>
+      <button class="dlg-close" data-action="closeModal" data-modal="modalAttEdit"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="attEditForm">
+      <div class="dlg-body">
+        <div class="form-grid">
+          <div>
+            <label class="lbl" for="attEditIn">وقت الدخول</label>
+            <input class="inp" id="attEditIn" type="time">
+          </div>
+          <div>
+            <label class="lbl" for="attEditOut">وقت الخروج</label>
+            <input class="inp" id="attEditOut" type="time">
+          </div>
+          <div style="grid-column:1/-1">
+            <label class="lbl" for="attEditMissed">الوقت الفائت يدوياً (دقائق)</label>
+            <input class="inp" id="attEditMissed" type="number" min="0" step="1" placeholder="اتركه فارغاً للحساب التلقائي">
+          </div>
+        </div>
+        <p class="note">إذا عدّلت وقت الدخول، يُعاد حساب التأخير والفترات. إذا كتبت «الوقت الفائت»، يظهر هذا الرقم بدل الحساب التلقائي (0 = لا فائت).</p>
+        <div class="box" id="attEditPreview" style="font-size:11.5px;color:var(--muted)"></div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-check"></i>حفظ التعديل</button>
+        <button class="btn btn-ghost" type="button" data-action="closeModal" data-modal="modalAttEdit">إلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ======================= مودال: مسح QR ======================= -->
 <div class="modal" id="modalQR" role="dialog" aria-modal="true">
   <div class="dialog" style="max-width:460px">
@@ -1616,7 +1699,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 /* ============================================================
    0. ثوابت وأدوات
    ============================================================ */
-const VERSION = '3.0.0';
+const VERSION = '3.1.0';
 const LS_STATE = 'bukhari.state.v2';
 const LS_BACKUPS = 'bukhari.backups.v2';
 const LS_CLIENT = 'bukhari.clientId';
@@ -1845,22 +1928,27 @@ function periodStats(events, p, at) {
 function weekStats(s, w, at) {
   const periods = weekPeriods(w);
   if (!periods.length) return null;
+  const rec = recOf(s && s.attendance ? s.attendance[w.id] : null);
+  const hasOverride = !!(rec && rec.missedOverride !== null && rec.missedOverride !== undefined);
   const events = eventsOf(s, w.id);
   const nowTs = Number(at) || now();
   if (!events.length) {
     return {
       periods: periods.map(p => Object.assign({}, p, { unknown: true, future: nowTs < p.start, present: false, missed: 0, late: 0, early: 0 })),
-      unknown: true, missed: null, presentCount: 0, total: periods.length, elapsed: 0, events: events
+      unknown: true, missed: hasOverride ? rec.missedOverride : null, override: hasOverride,
+      presentCount: 0, total: periods.length, elapsed: 0, events: events
     };
   }
   const list = periods.map(p => periodStats(events, p, nowTs));
   const elapsed = list.filter(p => !p.future);
-  const missed = elapsed.reduce((sum, p) => sum + p.missed, 0);
+  let missed = elapsed.reduce((sum, p) => sum + p.missed, 0);
+  if (hasOverride) missed = rec.missedOverride;
   const presentCount = list.filter(p => p.present).length;
   const ins = events.filter(e => e.type === 'in');
   const outs = events.filter(e => e.type === 'out');
   return {
-    periods: list, unknown: false, missed: missed, presentCount: presentCount,
+    periods: list, unknown: false, missed: missed, override: hasOverride,
+    presentCount: presentCount,
     total: list.length, elapsed: elapsed.length,
     open: openEntryOf(events), firstIn: ins.length ? ins[0] : null,
     lastOut: outs.length ? outs[outs.length - 1] : null, events: events
@@ -1881,7 +1969,11 @@ function periodTitle(p) {
   return t;
 }
 function missedText(ws) {
-  if (!ws || ws.unknown || ws.missed === null) return '';
+  if (!ws) return '';
+  if (ws.override && ws.missed !== null) {
+    return ws.missed ? 'فائت ' + humanDur(ws.missed * 60000) : 'لا فائت';
+  }
+  if (ws.unknown || ws.missed === null) return '';
   if (ws.elapsed === 0) return 'لم تبدأ';
   if (ws.missed > 0) return 'فائت ' + humanDur(ws.missed * 60000);
   if (ws.elapsed < ws.total) {
@@ -1929,6 +2021,15 @@ function attTiming(s, w) {
   if (!rec || !rec.t || rec.s !== 'present') return null;
   const ws = weekStats(s, w);
   const when = fmtTs(rec.t);
+  if (rec.missedOverride !== null && rec.missedOverride !== undefined) {
+    const m = rec.missedOverride;
+    return {
+      text: m ? 'فائت ' + humanDur(m * 60000) : 'لا فائت',
+      cls: m ? 'late' : 'start',
+      title: 'تعديل يدوي — الوقت الفائت ' + (m ? humanDur(m * 60000) : '0 دقيقة') + (rec.t ? ' • الدخول ' + when : ''),
+      missed: m, override: true, ws: ws
+    };
+  }
   if (ws && !ws.unknown) {
     const detail = ws.periods.map(periodTitle).join(' | ');
     const done = ws.elapsed >= ws.total;
@@ -2070,13 +2171,15 @@ function recStatus(v) {
 }
 function recOf(v) {
   if (!v) return null;
-  if (typeof v === 'string') return { s: recStatus(v), t: 0, out: 0, u: 0, manual: false };
+  if (typeof v === 'string') return { s: recStatus(v), t: 0, out: 0, u: 0, manual: false, missedOverride: null };
+  const mo = v.missedOverride;
   return {
     s: recStatus(v),
     t: Number(v.t) || 0,
     out: Number(v.out) || 0,
     u: Number(v.u) || 0,
-    manual: !!v.manual
+    manual: !!v.manual,
+    missedOverride: (mo === 0 || mo) ? Math.max(0, Math.round(Number(mo))) : null
   };
 }
 
@@ -2153,6 +2256,7 @@ function normalizeAttendance(att) {
     if (r.out) rec.out = r.out;
     if (r.u) rec.u = r.u;
     if (r.manual) rec.manual = true;
+    if (r.missedOverride !== null && r.missedOverride !== undefined) rec.missedOverride = r.missedOverride;
     o[k] = rec;
   });
   return o;
@@ -2483,6 +2587,7 @@ function mergeStudent(l, r) {
     if (v.out) rec.out = v.out;
     if (v.u) rec.u = v.u;
     if (v.manual) rec.manual = true;
+    if (v.missedOverride !== null && v.missedOverride !== undefined) rec.missedOverride = v.missedOverride;
     attOut[k] = rec;
   });
   return {
@@ -2514,7 +2619,7 @@ function fingerprint(s) {
   const st = (s.students || []).map(x => {
     const att = Object.keys(x.attendance || {}).sort().map(k => {
       const r = recOf(x.attendance[k]);
-      return k + ':' + (r ? r.s : '') + ':' + (r ? r.t : 0) + ':' + (r ? r.out || 0 : 0);
+      return k + ':' + (r ? r.s : '') + ':' + (r ? r.t : 0) + ':' + (r ? r.out || 0 : 0) + ':' + (r && r.missedOverride !== null && r.missedOverride !== undefined ? r.missedOverride : '');
     }).join(',');
     const ev = Object.keys(x.events || {}).sort().map(k => {
       return k + ':' + (x.events[k] || []).map(e => e.type + e.t).join('.');
@@ -2929,6 +3034,7 @@ function setAttendance(sid, wid, st, opts) {
 
   const rec = { s: st, t: now(), u: now(), manual: true };
   if (prevRec && prevRec.out) rec.out = prevRec.out;
+  if (prevRec && prevRec.missedOverride !== null && prevRec.missedOverride !== undefined) rec.missedOverride = prevRec.missedOverride;
   if (st === 'present' && prevRec && prevRec.s === 'present' && prevRec.t) rec.t = prevRec.t;
   s.attendance[wid] = rec;
   s.updatedAt = now();
@@ -3170,9 +3276,10 @@ function openInfo(sid) {
           (ws.lastOut ? ' • خروج ' + esc(fmtTs(ws.lastOut.t)) : (ws.open ? ' • داخل الآن' : '')) +
         '</div>'
       : '';
+    const editBtn = '<button type="button" class="hist-edit" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" title="تعديل وقت الحضور"><i class="fa-solid fa-pen"></i></button>';
     return '<div class="hist-row"><div><div class="hl">' + esc(w.label) + '</div><div class="hd">' + esc(w.date) + '</div>' +
       (!known && tm ? '<div class="htime">' + esc(tm.title) + '</div>' : '') + detail +
-      '</div>' + tag + '</div>';
+      '</div><div class="hist-side">' + tag + editBtn + '</div></div>';
   }).reverse().join('');
   const eligible = weeks.length;
   const pct = eligible ? Math.round((p / eligible) * 100) : 0;
@@ -3201,6 +3308,101 @@ function openInfo(sid) {
     alert.classList.add('hidden');
   }
   openModal('modalInfo');
+}
+
+let attEditSid = null, attEditWid = null;
+function hhmmOfTs(ts) {
+  if (!ts) return '';
+  const d = new Date(Number(ts));
+  if (isNaN(d.getTime())) return '';
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+function attEditPreview(s, w) {
+  const box = $('#attEditPreview');
+  if (!box) return;
+  const ws = weekStats(s, w);
+  const rec = recOf(s.attendance ? s.attendance[w.id] : null);
+  if (rec && rec.missedOverride !== null && rec.missedOverride !== undefined) {
+    box.textContent = 'الوقت الفائت اليدوي: ' + (rec.missedOverride ? humanDur(rec.missedOverride * 60000) : 'لا شيء');
+  } else if (ws && !ws.unknown) {
+    box.textContent = 'الوقت الفائت التلقائي: ' + (ws.missed ? humanDur(ws.missed * 60000) : 'لا شيء');
+  } else {
+    box.textContent = 'لا توجد أوقات فترات مكتملة — يمكنك إدخال الوقت يدوياً.';
+  }
+}
+function openAttEdit(sid, wid) {
+  const s = getStudent(sid);
+  const w = getWeek(wid);
+  if (!s || !w) { toast('تعذر فتح السجل', 'warn'); return; }
+  attEditSid = s.id;
+  attEditWid = w.id;
+  const rec = recOf(s.attendance ? s.attendance[w.id] : null);
+  const ps = weekPeriods(w);
+  $('#attEditSub').textContent = s.fullName + ' — ' + w.label + ' (' + w.date + ')';
+  $('#attEditIn').value = rec && rec.t ? hhmmOfTs(rec.t) : (ps.length ? ps[0].startTime : '');
+  $('#attEditOut').value = rec && rec.out ? hhmmOfTs(rec.out) : '';
+  $('#attEditMissed').value = rec && rec.missedOverride !== null && rec.missedOverride !== undefined ? rec.missedOverride : '';
+  attEditPreview(s, w);
+  openModal('modalAttEdit');
+  setTimeout(() => $('#attEditIn').focus(), 80);
+}
+function handleAttEditSubmit(e) {
+  e.preventDefault();
+  const s = getStudent(attEditSid);
+  const w = getWeek(attEditWid);
+  if (!s || !w) return;
+  const inHH = validHHMM($('#attEditIn').value);
+  const outHH = validHHMM($('#attEditOut').value);
+  const missedRaw = $('#attEditMissed').value.trim();
+  let missedOverride = null;
+  if (missedRaw !== '') {
+    const n = Number(missedRaw);
+    if (!isFinite(n) || n < 0) { toast('الوقت الفائت يجب أن يكون رقماً 0 أو أكثر', 'warn'); return; }
+    missedOverride = Math.round(n);
+  }
+  if (!inHH && missedOverride === null) { toast('حدد وقت دخول أو وقتاً فائتاً يدوياً', 'warn'); return; }
+  const inTs = inHH ? tsOfDate(w.date, inHH) : 0;
+  const outTs = outHH ? tsOfDate(w.date, outHH) : 0;
+  if (inTs && outTs && outTs <= inTs) { toast('وقت الخروج يجب أن يكون بعد وقت الدخول', 'warn'); return; }
+
+  let events = eventsOf(s, w.id).slice();
+  if (inTs) {
+    const firstIn = events.find(e => e.type === 'in');
+    if (firstIn) firstIn.t = inTs;
+    else events.push({ id: uid('ev'), type: 'in', t: inTs });
+  }
+  if (outTs) {
+    const outs = events.filter(e => e.type === 'out');
+    if (outs.length) outs[outs.length - 1].t = outTs;
+    else events.push({ id: uid('ev'), type: 'out', t: outTs });
+  } else {
+    events = events.filter(e => e.type !== 'out');
+  }
+  events.sort((a, b) => a.t - b.t || (a.type === 'in' ? -1 : 1));
+  if (!s.events) s.events = {};
+  if (events.length) s.events[w.id] = events;
+  else delete s.events[w.id];
+
+  const prev = recOf(s.attendance ? s.attendance[w.id] : null);
+  const rec = prev ? Object.assign({}, prev) : { s: 'present', t: inTs || now(), u: now() };
+  rec.s = 'present';
+  if (inTs) rec.t = inTs;
+  else if (!rec.t) rec.t = now();
+  if (outTs) rec.out = outTs;
+  else delete rec.out;
+  if (missedOverride !== null) rec.missedOverride = missedOverride;
+  else delete rec.missedOverride;
+  rec.manual = true;
+  rec.u = now();
+  if (!s.attendance) s.attendance = {};
+  s.attendance[w.id] = rec;
+  s.updatedAt = now();
+  if (w.isDefault) { w.isDefault = false; w.updatedAt = now(); }
+  saveState(); render();
+  closeModal('modalAttEdit');
+  if ($('#modalInfo').classList.contains('open')) openInfo(s.id);
+  const tm = attTiming(s, w);
+  toast('تم تعديل وقت ' + s.fullName + (tm ? ' — ' + tm.text : ''), 'ok', { duration: 5000 });
 }
 
 function deleteStudent(sid) {
@@ -3343,6 +3545,73 @@ function handleWeekSubmit(e) {
     if (th) th.scrollIntoView({ inline: 'center', block: 'nearest' });
   }, 120);
   toast('تم بدء ' + label + ' (' + date + ')' + (filled ? ' • أُغلق ' + filled + ' سجل غياب' : ''), 'ok', { duration: 6000 });
+}
+
+function openBulkWeeks() {
+  const today = isoOf(new Date());
+  $('#bulkStartDate').value = '2026-10-29';
+  $('#bulkEndDate').value = today;
+  $('#bulkCopyTimes').checked = false;
+  openModal('modalBulkWeeks');
+}
+
+function handleBulkWeeksSubmit(e) {
+  e.preventDefault();
+  const start = $('#bulkStartDate').value;
+  const end = $('#bulkEndDate').value;
+  if (!start || !end) { toast('حدد تاريخ البداية والنهاية', 'warn'); return; }
+  if (start > end) { toast('تاريخ البداية يجب أن يكون قبل النهاية', 'warn'); return; }
+  const existing = new Set(state.weeks.filter(w => w.date).map(w => w.date));
+  const copyTimes = !!$('#bulkCopyTimes').checked;
+  const lastW = weeksSorted().slice(-1)[0] || null;
+  const times = copyTimes && lastW ? {
+    startTime: lastW.startTime || '', p1Start: lastW.p1Start || '', p1End: lastW.p1End || '',
+    p2Start: lastW.p2Start || '', p2End: lastW.p2End || ''
+  } : { startTime: '', p1Start: '', p1End: '', p2Start: '', p2End: '' };
+
+  const dates = [];
+  const d = new Date(start + 'T12:00:00');
+  const endD = new Date(end + 'T12:00:00');
+  if (isNaN(d.getTime()) || isNaN(endD.getTime())) { toast('تاريخ غير صالح', 'warn'); return; }
+  while (d <= endD) {
+    if (d.getDay() === 4) {
+      const iso = isoOf(d);
+      if (!existing.has(iso)) dates.push(iso);
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  if (!dates.length) { toast('كل أسابيع هذه الفترة موجودة مسبقاً', 'warn', { duration: 5000 }); return; }
+
+  dates.forEach(date => {
+    state.weeks.push({
+      id: 'week_' + date.replace(/-/g, '') + '_' + now().toString(36),
+      weekNumber: 0, label: '', date: date,
+      startTime: times.startTime, p1Start: times.p1Start, p1End: times.p1End,
+      p2Start: times.p2Start, p2End: times.p2End,
+      createdAt: now(), updatedAt: now(), deleted: false, isDefault: false
+    });
+  });
+
+  const all = state.weeks
+    .filter(w => !w.deleted)
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+  all.forEach((w, i) => {
+    const n = i + 1;
+    const label = 'الأسبوع ' + n;
+    if (w.weekNumber !== n || w.label !== label) {
+      w.weekNumber = n;
+      w.label = label;
+      w.updatedAt = now();
+    }
+  });
+  const today = isoOf(new Date());
+  const todayW = all.find(w => w.date === today);
+  setActiveWeek(todayW ? todayW.id : all[all.length - 1].id);
+  saveState();
+  render();
+  closeModal('modalBulkWeeks');
+  const countText = dates.length === 1 ? 'أسبوع واحد' : dates.length + ' أسابيع';
+  toast('تمت إضافة ' + countText + (copyTimes ? ' مع نسخ الأوقات' : ''), 'ok', { duration: 6000 });
 }
 
 function fillAbsences(weeksArr) {
@@ -4077,16 +4346,27 @@ function periodStats_(evs, p, at) {
 function weekStats_(s, w, at) {
   var periods = periodsOf_(w);
   if (!periods.length) return null;
+  var rec = (s.attendance || {})[w.id];
+  var hasOverride = rec && typeof rec === 'object' && rec.missedOverride !== undefined && rec.missedOverride !== null && rec.missedOverride !== '';
   var evs = eventsOf_(s, w.id);
-  if (!evs.length) return null;
+  if (!evs.length) {
+    if (hasOverride) {
+      return {
+        periods: [], missed: Math.max(0, Math.round(Number(rec.missedOverride) || 0)),
+        firstIn: null, lastOut: null, open: null, override: true
+      };
+    }
+    return null;
+  }
   var nowTs = Number(at) || Date.now();
   var list = periods.map(function (p) { return periodStats_(evs, p, nowTs); });
   var elapsed = list.filter(function (p) { return !p.future; });
   var missed = elapsed.reduce(function (sum, p) { return sum + p.missed; }, 0);
+  if (hasOverride) missed = Math.max(0, Math.round(Number(rec.missedOverride) || 0));
   var ins = evs.filter(function (e) { return e.type === 'in'; });
   var outs = evs.filter(function (e) { return e.type === 'out'; });
   return {
-    periods: list, missed: missed,
+    periods: list, missed: missed, override: !!hasOverride,
     firstIn: ins.length ? ins[0] : null,
     lastOut: outs.length ? outs[outs.length - 1] : null,
     open: openEntry_(evs)
@@ -5441,6 +5721,7 @@ function bindEvents() {
         setAttendance(el.dataset.sid, el.dataset.wid, el.dataset.st);
         break;
       case 'infoStudent': openInfo(el.dataset.sid); break;
+      case 'editAtt': openAttEdit(el.dataset.sid, el.dataset.wid); break;
       case 'editStudent':
         closeModal('modalInfo');
         openStudentModal(el.dataset.sid || currentInfoId);
@@ -5452,6 +5733,7 @@ function bindEvents() {
         openStudentModal(null);
         break;
       case 'openNewWeek': openWeekModal(); break;
+      case 'openBulkWeeks': openBulkWeeks(); break;
       case 'openImport':
         $('#bulkText').value = '';
         openModal('modalImport');
@@ -5515,6 +5797,8 @@ function bindEvents() {
   $('#studentForm').addEventListener('submit', handleStudentSubmit);
   $('#weekForm').addEventListener('submit', handleWeekSubmit);
   $('#weekEditForm').addEventListener('submit', handleWeekEditSubmit);
+  $('#attEditForm').addEventListener('submit', handleAttEditSubmit);
+  $('#bulkWeeksForm').addEventListener('submit', handleBulkWeeksSubmit);
 
   $('#searchInput').addEventListener('input', function (e) {
     prefs.query = e.target.value;
