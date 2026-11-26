@@ -752,17 +752,17 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 </noscript>
 
 <!-- ======================= شاشة قفل لوحة الإدارة ======================= -->
-<div id="lockScreen" class="lock-screen hidden" role="dialog" aria-modal="true" aria-label="قفل لوحة الإدارة">
+<div id="lockScreen" class="lock-screen hidden" role="dialog" aria-modal="true" aria-label="قفل الموقع">
   <div class="lock-card">
     <img src="logo.jpg" alt="" class="lock-logo" onerror="this.style.display='none'">
-    <h2>لوحة الإدارة مقفلة</h2>
-    <p class="lock-sub">أدخل رمز الحماية للمتابعة</p>
-    <input id="lockPin" class="inp lock-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••" aria-label="رمز الحماية">
+    <h2>الموقع مقفل</h2>
+    <p class="lock-sub">أدخل كلمة سر الموقع للمتابعة</p>
+    <input id="lockPin" class="inp lock-pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••" aria-label="كلمة سر الموقع">
     <button class="btn btn-primary btn-block" data-action="unlock" style="margin-top:10px">
       <i class="fa-solid fa-lock-open"></i>دخول
     </button>
     <p id="lockError" class="lock-error"></p>
-    <p class="note" style="margin-top:10px">الرمز يُحفظ على هذا الجهاز فقط، ولا يُطلب في صفحة تسجيل الحضور QR.</p>
+    <p class="note" style="margin-top:10px">كلمة السر عامة على كل الأجهزة، ولا تُطلب في صفحة تسجيل الحضور QR.</p>
   </div>
 </div>
 
@@ -1405,27 +1405,15 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
       <!-- الحماية -->
       <div class="tab-pane" id="tab-security">
         <div class="box" style="margin-bottom:10px">
-          <div class="box-title"><i class="fa-solid fa-lock"></i>رمز حماية لوحة الإدارة</div>
-          <p class="note" style="margin-top:0">عند تعيين رمز، لن تُفتح لوحة الإدارة على هذا الجهاز إلا بعد إدخاله. صفحة تسجيل الحضور QR <b>لا تتأثر</b>.</p>
-          <div id="pinNotSet">
-            <label class="lbl" for="inPin">رمز جديد (4–6 أرقام)</label>
-            <div style="display:flex;gap:6px">
-              <input class="inp" id="inPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••">
-              <button class="btn btn-primary btn-sm" data-action="setPin"><i class="fa-solid fa-check"></i>تعيين</button>
-            </div>
-          </div>
-          <div id="pinSet" class="hidden">
-            <div class="badge-line" style="margin-bottom:8px"><i class="fa-solid fa-lock" style="color:#34d399"></i> رمز الحماية مفعّل على هذا الجهاز</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap">
-              <button class="btn btn-ghost btn-sm" data-action="lockNow"><i class="fa-solid fa-lock"></i>قفل الآن</button>
-              <button class="btn btn-ghost btn-sm" data-action="changePin"><i class="fa-solid fa-key"></i>تغيير الرمز</button>
-              <button class="btn btn-danger btn-sm" data-action="removePin"><i class="fa-solid fa-trash"></i>إزالة</button>
-            </div>
-          </div>
+          <div class="box-title"><i class="fa-solid fa-lock"></i>كلمة سر الموقع</div>
+          <p class="note" style="margin-top:0">كلمة سر عامة تُطلب على أي جهاز جديد قبل فتح لوحة الإدارة. صفحة تسجيل الحضور QR <b>لا تتأثر</b>.</p>
+          <div class="badge-line" style="margin-bottom:8px"><i class="fa-solid fa-lock" style="color:#34d399"></i> كلمة السر مفعّلة على كل الأجهزة</div>
+          <button class="btn btn-ghost btn-sm" data-action="lockNow"><i class="fa-solid fa-lock"></i>اقفل الآن</button>
+          <p class="note" style="margin:8px 0 0">لتغيير كلمة السر، تواصل مع المطوّر.</p>
         </div>
         <div class="box">
           <div class="box-title"><i class="fa-solid fa-circle-info"></i>ملاحظة</div>
-          <p class="note" style="margin:0">الرمز حماية للواجهة على هذا الجهاز (يمنع العبث العابر). البيانات نفسها محمية بنسخ Google Sheets والنسخ الاحتياطية.</p>
+          <p class="note" style="margin:0">كلمة السر تحمي الواجهة من العبث العابر، والحفظ في الشيت لا يقبل تعديلاً بدونها. البيانات نفسها محمية بحساب Google والنسخ الاحتياطية.</p>
         </div>
       </div>
 
@@ -1699,7 +1687,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 /* ============================================================
    0. ثوابت وأدوات
    ============================================================ */
-const VERSION = '3.1.0';
+const VERSION = '3.2.0';
 const LS_STATE = 'bukhari.state.v2';
 const LS_BACKUPS = 'bukhari.backups.v2';
 const LS_CLIENT = 'bukhari.clientId';
@@ -2430,6 +2418,7 @@ function buildPayload() {
     version: VERSION,
     clientId: state.clientId,
     adminKey: getSyncKey(),
+    adminPass: getAdminPass(),
     updatedAt: now(),
     state: state,
     weeks: weeks,
@@ -2440,6 +2429,10 @@ function buildPayload() {
 async function pushState(manual) {
   const url = syncUrl();
   if (!url) { if (manual) toast('أضف رابط Google Apps Script من الإعدادات أولاً', 'warn'); return false; }
+  if (!checkinMode && !getAdminPass()) {
+    if (manual) toast('أدخل كلمة سر الموقع أولاً', 'warn');
+    return false;
+  }
   try {
     await fetch(url, {
       method: 'POST',
@@ -4183,11 +4176,12 @@ function doGet(e) {
   var state = readState_();
   var v = (state && state.updatedAt) ? String(state.updatedAt) : '';
   var hasKey = !!PropertiesService.getScriptProperties().getProperty('ADMIN_KEY_HASH');
+  var hasPass = hasPass_();
   var payload;
   if (p.v && p.v === v) {
-    payload = { ok: true, unchanged: true, v: v, hasKey: hasKey, serverTime: Date.now() };
+    payload = { ok: true, unchanged: true, v: v, hasKey: hasKey, hasPass: hasPass, serverTime: Date.now() };
   } else {
-    payload = { ok: true, state: state, v: v, hasKey: hasKey, serverTime: Date.now() };
+    payload = { ok: true, state: state, v: v, hasKey: hasKey, hasPass: hasPass, serverTime: Date.now() };
   }
   var out = JSON.stringify(payload);
   if (cb) {
@@ -4205,6 +4199,12 @@ function doPost(e) {
     var body = JSON.parse(e.postData.contents);
     if (body.action === 'checkin' || body.action === 'checkout') {
       return handlePunch_(body, body.action === 'checkout' ? 'out' : 'in');
+    }
+    if (body.action === 'setAdminPass') {
+      return handleSetAdminPass_(body);
+    }
+    if (!adminPassOk_(body)) {
+      return respondJson_({ ok: false, error: 'unauthorized' });
     }
     if (!adminKeyOk_(body)) {
       return respondJson_({ ok: false, error: 'unauthorized' });
@@ -4673,6 +4673,31 @@ function adminKeyOk_(body) {
     return true; // متوافق للخلف حتى يُضبط المفتاح
   }
   return !!provided && keyHash_(provided) === stored;
+}
+
+function hasPass_() {
+  return !!PropertiesService.getScriptProperties().getProperty('ADMIN_PASS_HASH');
+}
+
+function adminPassOk_(body) {
+  var stored = PropertiesService.getScriptProperties().getProperty('ADMIN_PASS_HASH') || '';
+  if (!stored) return true;
+  var pass = body && body.adminPass ? String(body.adminPass) : '';
+  return !!pass && keyHash_(pass) === stored;
+}
+
+function handleSetAdminPass_(body) {
+  var props = PropertiesService.getScriptProperties();
+  var stored = props.getProperty('ADMIN_PASS_HASH') || '';
+  if (stored && keyHash_(body.currentPass || '') !== stored) {
+    return respondJson_({ ok: false, error: 'unauthorized' });
+  }
+  var newPass = String(body.newPass || '');
+  if (newPass.length < 4 || newPass.length > 32) {
+    return respondJson_({ ok: false, error: 'bad-password' });
+  }
+  props.setProperty('ADMIN_PASS_HASH', keyHash_(newPass));
+  return respondJson_({ ok: true, hasPass: true });
 }
 
 function eventsOf_(s, wid) {
@@ -5557,8 +5582,37 @@ function downloadPoster() {
    ============================================================ */
 const LS_PIN = 'bukhari.pinHash.v1';
 const SS_UNLOCK = 'bukhari.unlocked.v1';
+const ADMIN_PASS_HASH = 'b50ace1d79a22f49972650b31440b3298cfd2dd256137c02ac1cafd971c8c0a7';
+const LS_ADMIN_PASS = 'bukhari.adminPass.v1';
+const SS_ADMIN_UNLOCK = 'bukhari.adminUnlocked.v1';
 let pinAttempts = 0;
 let pinLockUntil = 0;
+
+function getAdminPass() {
+  try { return localStorage.getItem(LS_ADMIN_PASS) || ''; } catch (e) { return ''; }
+}
+function setAdminPassLocal(v) {
+  try {
+    if (v) localStorage.setItem(LS_ADMIN_PASS, v);
+    else localStorage.removeItem(LS_ADMIN_PASS);
+    if (v) sessionStorage.setItem(SS_ADMIN_UNLOCK, '1');
+    else sessionStorage.removeItem(SS_ADMIN_UNLOCK);
+  } catch (e) {}
+}
+function adminSessionUnlocked() {
+  try { return sessionStorage.getItem(SS_ADMIN_UNLOCK) === '1'; } catch (e) { return false; }
+}
+async function hashAdminPass(pass) {
+  if (!(window.crypto && crypto.subtle)) return '';
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(pass)));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+async function savedAdminPassOk() {
+  const saved = getAdminPass();
+  if (!saved) return false;
+  const h = await hashAdminPass(saved);
+  return !!h && h === ADMIN_PASS_HASH;
+}
 
 function hasPin() {
   try { return !!localStorage.getItem(LS_PIN); } catch (e) { return false; }
@@ -5579,13 +5633,15 @@ async function hashPin(pin) {
 
 function showLock() {
   if (checkinMode) return;
-  if (!hasPin() || pinUnlocked()) return;
+  if (adminSessionUnlocked()) return;
   const el = $('#lockScreen');
   if (!el) return;
   el.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
   const err = $('#lockError');
   if (err) err.textContent = '';
+  const inp = $('#lockPin');
+  if (inp) inp.value = '';
   setTimeout(() => { const i = $('#lockPin'); if (i) i.focus(); }, 120);
 }
 
@@ -5599,13 +5655,12 @@ async function tryUnlock() {
   const inp = $('#lockPin');
   const err = $('#lockError');
   if (!inp) return;
-  const pin = (inp.value || '').trim();
-  if (!/^\d{4,6}$/.test(pin)) { if (err) err.textContent = 'أدخل 4–6 أرقام'; return; }
+  const pass = (inp.value || '').trim();
+  if (!/^\d{4,6}$/.test(pass)) { if (err) err.textContent = 'أدخل 4–6 أرقام'; return; }
   if (now() < pinLockUntil) { if (err) err.textContent = 'محاولات كثيرة — انتظر قليلاً'; return; }
-  const stored = (() => { try { return localStorage.getItem(LS_PIN); } catch (e) { return ''; } })();
-  const h = await hashPin(pin);
-  if (h === stored) {
-    try { sessionStorage.setItem(SS_UNLOCK, '1'); } catch (e) {}
+  const h = await hashAdminPass(pass);
+  if (h && h === ADMIN_PASS_HASH) {
+    setAdminPassLocal(pass);
     pinAttempts = 0;
     inp.value = '';
     if (err) err.textContent = '';
@@ -5613,7 +5668,7 @@ async function tryUnlock() {
     toast('مرحباً بك', 'ok', { duration: 1800 });
   } else {
     pinAttempts++;
-    if (err) err.textContent = 'الرمز غير صحيح';
+    if (err) err.textContent = 'كلمة السر غير صحيحة';
     const card = document.querySelector('.lock-card');
     if (card) { card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); }
     if (pinAttempts >= 5) {
@@ -5668,7 +5723,7 @@ function changePin() {
 }
 
 function lockNow() {
-  try { sessionStorage.removeItem(SS_UNLOCK); } catch (e) {}
+  setAdminPassLocal('');
   closeModal('modalSettings');
   showLock();
 }
@@ -5898,7 +5953,7 @@ function switchTab(name) {
 /* ============================================================
    15. الإقلاع
    ============================================================ */
-function init() {
+async function init() {
   let firstRun = false;
   try { firstRun = !localStorage.getItem(LS_STATE); } catch (e) {}
   try {
@@ -5930,9 +5985,12 @@ function init() {
     return;
   }
 
-  if (hasPin() && !pinUnlocked()) {
+  if (!adminSessionUnlocked()) {
     showLock();
-    return;
+    const ok = await savedAdminPassOk();
+    if (!ok) return;
+    try { sessionStorage.setItem(SS_ADMIN_UNLOCK, '1'); } catch (e) {}
+    hideLock();
   }
 
   if (firstRun) {
