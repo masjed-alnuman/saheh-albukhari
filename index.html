@@ -1927,9 +1927,17 @@ function periodStats(events, p, at) {
 }
 function weekStats(s, w, at) {
   const periods = weekPeriods(w);
-  if (!periods.length) return null;
   const rec = recOf(s && s.attendance ? s.attendance[w.id] : null);
   const hasOverride = !!(rec && rec.missedOverride !== null && rec.missedOverride !== undefined);
+  if (!periods.length) {
+    if (hasOverride) {
+      return {
+        periods: [], unknown: true, missed: rec.missedOverride, override: true,
+        presentCount: 0, total: 0, elapsed: 0, events: eventsOf(s, w.id)
+      };
+    }
+    return null;
+  }
   const events = eventsOf(s, w.id);
   const nowTs = Number(at) || now();
   if (!events.length) {
@@ -4345,9 +4353,17 @@ function periodStats_(evs, p, at) {
 }
 function weekStats_(s, w, at) {
   var periods = periodsOf_(w);
-  if (!periods.length) return null;
   var rec = (s.attendance || {})[w.id];
   var hasOverride = rec && typeof rec === 'object' && rec.missedOverride !== undefined && rec.missedOverride !== null && rec.missedOverride !== '';
+  if (!periods.length) {
+    if (hasOverride) {
+      return {
+        periods: [], missed: Math.max(0, Math.round(Number(rec.missedOverride) || 0)),
+        firstIn: null, lastOut: null, open: null, override: true
+      };
+    }
+    return null;
+  }
   var evs = eventsOf_(s, w.id);
   if (!evs.length) {
     if (hasOverride) {
