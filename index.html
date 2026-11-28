@@ -281,6 +281,21 @@ table.tbl{width:100%;border-collapse:separate;border-spacing:0;min-width:480px}
 .tbl thead th.week-col:hover .wk-del{opacity:1}
 .wk-del:hover{background:rgba(239,68,68,.18);color:#fca5a5}
 @media (hover:none){.wk-del{opacity:.45}}
+.wk-lock{
+  display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;
+  color:#6b8179;font-size:9px;opacity:.5;transition:.14s;cursor:pointer;
+}
+.tbl thead th.week-col:hover .wk-lock{opacity:1}
+.wk-lock:hover{background:rgba(212,175,55,.16);color:var(--gold-2)}
+.wk-lock.on{opacity:1;color:var(--gold-2);background:rgba(212,175,55,.12)}
+.wk-lock-tag{display:inline-block;margin-inline-start:5px;padding:0 6px;border-radius:99px;background:rgba(212,175,55,.15);color:var(--gold-2);font-size:9px;font-weight:800;font-family:inherit;direction:rtl}
+.tbl thead th.week-col.is-locked{background:linear-gradient(180deg,rgba(120,80,10,.16),rgba(120,80,10,.03))}
+.tbl thead th.week-col.is-locked.active{background:linear-gradient(180deg,rgba(120,80,10,.35),rgba(6,95,70,.22))}
+.tbl td.is-locked .att button{opacity:.42;cursor:not-allowed}
+.tbl td.is-locked .att-time-row{opacity:.65}
+.tbl td.is-locked .att-edit{cursor:not-allowed}
+.stu-card.is-locked .stu-actions button{opacity:.45;cursor:not-allowed}
+.hist-edit.locked{color:var(--gold-2);border-color:rgba(212,175,55,.3)}
 .col-id{position:sticky;inset-inline-start:0;z-index:25;width:62px;min-width:62px;max-width:62px;text-align:center;color:var(--gold-2)}
 .col-name{position:sticky;inset-inline-start:62px;z-index:25;width:250px;min-width:250px;max-width:250px;text-align:start;padding-inline:12px!important;box-shadow:-8px 0 14px -10px rgba(0,0,0,.9)}
 .tbl thead th.col-id,.tbl thead th.col-name{z-index:30;background:#0a1310}
@@ -1204,12 +1219,10 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
             <p class="note">كل فترة تُحسب على حدة. اللي يطلع بين الفترتين تُحتسب له الأولى فقط، واللي يجي بالاستراحة تُحتسب له الثانية فقط. يُنسخ تلقائياً من الأسبوع السابق.</p>
           </div>
           <div class="box warn">
-            <label class="check">
-              <input type="checkbox" id="autoAbsentPrev" checked>
-              <span>إغلاق الأسابيع السابقة تلقائياً
-                <small>كل من لم يُسجَّل حضوره في الأسابيع السابقة سيُحسب <b style="color:#fca5a5">غائباً ✗</b> — بما في ذلك من انضم لاحقاً.</small>
-              </span>
-            </label>
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <i class="fa-solid fa-circle-info" style="color:#fbbf24;margin-top:2px"></i>
+              <span style="font-size:11.5px;line-height:1.7">عند بدء الأسبوع، كل من لم يُسجَّل حضوره في الأسابيع السابقة سيُحسب <b style="color:#fca5a5">غائباً ✗</b> تلقائياً. الحضور والغياب المسجّلان مسبقاً لا يتغيّران.</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1252,11 +1265,39 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
             </label>
           </div>
         </div>
-        <p class="note" style="margin-bottom:0">لا يسجّل حضوراً لأي طالب. تُرتَّب الأسابيع تلقائياً حسب التاريخ وتُعاد تسميتها «الأسبوع 1، 2، 3...».</p>
+        <p class="note" style="margin-bottom:0">لا يسجّل حضوراً لأي طالب. كل من لم يُسجَّل حضوره في الأسابيع الأقدم من آخر أسبوع مُولَّد سيُحسب <b style="color:#fca5a5">غائباً ✗</b> تلقائياً. تُرتَّب الأسابيع تلقائياً حسب التاريخ وتُعاد تسميتها «الأسبوع 1، 2، 3...».</p>
       </div>
       <div class="dlg-foot">
         <button class="btn btn-primary" type="submit"><i class="fa-solid fa-wand-magic-sparkles"></i>توليد</button>
         <button class="btn btn-ghost" type="button" data-action="closeModal" data-modal="modalBulkWeeks">إلغاء</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======================= مودال: قفل الأسبوع ======================= -->
+<div class="modal" id="modalWeekLock" role="dialog" aria-modal="true">
+  <div class="dialog" style="max-width:400px">
+    <div class="dlg-head">
+      <div class="dlg-ico gold" id="lockWeekIcon"><i class="fa-solid fa-lock"></i></div>
+      <div style="min-width:0">
+        <h3 id="lockWeekTitle">قفل الأسبوع</h3>
+        <p id="lockWeekSub">—</p>
+      </div>
+      <button class="dlg-close" data-action="closeModal" data-modal="modalWeekLock"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="weekLockForm">
+      <div class="dlg-body">
+        <div id="lockWeekPassBox" class="hidden">
+          <label class="lbl" for="weekLockPass">كلمة سر الموقع</label>
+          <input class="inp" id="weekLockPass" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••">
+          <p id="lockWeekError" class="lock-error"></p>
+        </div>
+        <p class="note" id="lockWeekNote" style="margin:0"></p>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn btn-primary" type="submit" id="weekLockBtn"><i class="fa-solid fa-lock"></i>قفل الأسبوع</button>
+        <button class="btn btn-ghost" type="button" data-action="closeModal" data-modal="modalWeekLock">إلغاء</button>
       </div>
     </form>
   </div>
@@ -1704,7 +1745,7 @@ body.checkin-mode .topbar,body.checkin-mode .hero,body.checkin-mode main{display
 /* ============================================================
    0. ثوابت وأدوات
    ============================================================ */
-const VERSION = '3.2.1';
+const VERSION = '3.3.0';
 const LS_STATE = 'bukhari.state.v2';
 const LS_BACKUPS = 'bukhari.backups.v2';
 const LS_CLIENT = 'bukhari.clientId';
@@ -2170,6 +2211,7 @@ function createInitialWeek(s) {
       p2End: '',
       createdAt: now(),
       updatedAt: now(),
+      locked: false,
       deleted: false,
       isDefault: true
     });
@@ -2229,6 +2271,7 @@ function migrate(raw) {
       p2End: validHHMM(w.p2End || ''),
       createdAt: Number(w.createdAt) || now(),
       updatedAt: Number(w.updatedAt) || 0,
+      locked: !!w.locked,
       deleted: !!w.deleted,
       isDefault: !!w.isDefault
     });
@@ -2644,7 +2687,7 @@ function fingerprint(s) {
     }).join(',');
     return [x.id, x.serialNumber, x.firstName, x.fatherName, x.lastName, x.deleted ? 1 : 0, att, ev].join('~');
   }).sort();
-  const wk = (s.weeks || []).map(x => [x.id, x.weekNumber, x.label, x.date, x.p1Start || x.startTime || '', x.p1End || '', x.p2Start || '', x.p2End || '', x.deleted ? 1 : 0].join('~')).sort();
+  const wk = (s.weeks || []).map(x => [x.id, x.weekNumber, x.label, x.date, x.p1Start || x.startTime || '', x.p1End || '', x.p2Start || '', x.p2End || '', x.locked ? 1 : 0, x.deleted ? 1 : 0].join('~')).sort();
   return JSON.stringify([st, wk, s.settings ? s.settings.webhookUrl : '']);
 }
 
@@ -2860,18 +2903,20 @@ function filteredStudents() {
 function attCellHTML(s, w) {
   const st = recStatus(s.attendance ? s.attendance[w.id] : null);
   const active = w.id === activeWeekId ? ' is-active' : '';
+  const locked = w.locked ? ' is-locked' : '';
   const timing = attTiming(s, w);
   const ws = weekStats(s, w);
   const badges = periodBadgesHTML(ws);
   const timeHTML = timing
     ? '<div class="att-time ' + timing.cls + '" title="' + esc(timing.title) + '">' + esc(timing.text) + '</div>'
     : '';
-  const editBtn = '<button type="button" class="att-edit" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" title="تعديل وقت الحضور"><i class="fa-solid fa-pen"></i></button>';
-  return '<td class="' + active + '">' +
+  const lockTip = w.locked ? ' data-locked="1"' : '';
+  const editBtn = '<button type="button" class="att-edit" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" title="' + (w.locked ? 'الأسبوع مقفل — افتح القفل للتعديل' : 'تعديل وقت الحضور') + '"><i class="fa-solid ' + (w.locked ? 'fa-lock' : 'fa-pen') + '"></i></button>';
+  return '<td class="' + active + locked + '">' +
     '<div class="att">' +
-    '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="present" class="' + (st === 'present' ? 'on-p' : '') + '" title="حاضر" aria-label="حاضر"><i class="fa-solid fa-check"></i></button>' +
-    '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="absent" class="' + (st === 'absent' ? 'on-a' : '') + '" title="غائب" aria-label="غائب"><i class="fa-solid fa-xmark"></i></button>' +
-    '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="pending" class="' + (st === 'pending' ? 'on-x' : '') + '" title="لم يسجل" aria-label="لم يسجل"><i class="fa-solid fa-minus"></i></button>' +
+    '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="present" class="' + (st === 'present' ? 'on-p' : '') + '" title="حاضر" aria-label="حاضر"' + lockTip + '><i class="fa-solid fa-check"></i></button>' +
+    '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="absent" class="' + (st === 'absent' ? 'on-a' : '') + '" title="غائب" aria-label="غائب"' + lockTip + '><i class="fa-solid fa-xmark"></i></button>' +
+    '<button type="button" data-action="att" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" data-st="pending" class="' + (st === 'pending' ? 'on-x' : '') + '" title="لم يسجل" aria-label="لم يسجل"' + lockTip + '><i class="fa-solid fa-minus"></i></button>' +
     '</div>' + badges + '<div class="att-time-row">' + timeHTML + editBtn + '</div></td>';
 }
 
@@ -2913,6 +2958,7 @@ function renderTable() {
   let h = '<th class="col-id">الرقم</th><th class="col-name">الاسم الكامل</th>';
   weeks.forEach(w => {
     const act = w.id === activeWeekId ? ' active' : '';
+    const lck = w.locked ? ' is-locked' : '';
     const ps = weekPeriods(w);
     const hasTime = ps.length > 0 || !!w.startTime;
     const timeLabel = ps.length === 2
@@ -2920,13 +2966,16 @@ function renderTable() {
       : ps.length === 1
         ? fmtTime12(ps[0].startTime) + ' – ' + fmtTime12(ps[0].endTime)
         : w.startTime ? fmtTime12(w.startTime) : 'وقت البدء';
-    const timeTitle = ps.length
-      ? ps.map(p => p.label + ' ' + fmtTime12(p.startTime) + ' – ' + fmtTime12(p.endTime)).join(' | ') + ' — اضغط للتعديل'
-      : (hasTime ? 'بدء الدرس ' + esc(fmtTime12(w.startTime)) + ' — اضغط للتعديل' : 'لم يُحدد وقت البدء — اضغط للتحديد');
-    h += '<th class="week-col' + act + '" data-action="setWeek" data-week="' + esc(w.id) + '" title="اختيار هذا الخميس">' +
+    const timeTitle = w.locked
+      ? 'الأسبوع مقفل — افتح القفل بكلمة السر لتعديل الأوقات'
+      : ps.length
+        ? ps.map(p => p.label + ' ' + fmtTime12(p.startTime) + ' – ' + fmtTime12(p.endTime)).join(' | ') + ' — اضغط للتعديل'
+        : (hasTime ? 'بدء الدرس ' + esc(fmtTime12(w.startTime)) + ' — اضغط للتعديل' : 'لم يُحدد وقت البدء — اضغط للتحديد');
+    h += '<th class="week-col' + act + lck + '" data-action="setWeek" data-week="' + esc(w.id) + '" title="اختيار هذا الخميس">' +
       '<div class="wl"><span>' + esc(w.label) + '</span>' +
+      '<span class="wk-lock' + (w.locked ? ' on' : '') + '" data-action="toggleWeekLock" data-week="' + esc(w.id) + '" title="' + (w.locked ? 'الأسبوع مقفل — اضغط لفتح القفل بكلمة السر' : 'قفل الأسبوع بعد اكتمال التسجيل') + '"><i class="fa-solid ' + (w.locked ? 'fa-lock' : 'fa-lock-open') + '"></i></span>' +
       '<span class="wk-del" data-action="deleteWeek" data-week="' + esc(w.id) + '" title="حذف هذا الأسبوع"><i class="fa-solid fa-trash"></i></span>' +
-      '</div><div class="wd">' + esc(w.date || '') + '</div>' +
+      '</div><div class="wd">' + esc(w.date || '') + (w.locked ? '<span class="wk-lock-tag">مقفل</span>' : '') + '</div>' +
       '<div class="wt' + (hasTime ? '' : ' missing') + '" data-action="editWeekTime" data-week="' + esc(w.id) + '" title="' + timeTitle + '">' +
         '<i class="fa-regular fa-clock"></i>' + esc(timeLabel) +
       '</div></th>';
@@ -3007,13 +3056,13 @@ function cardHTML(s, wk) {
     ? '<div class="mini" style="margin-top:4px">' + badges +
       (ws && !ws.unknown ? ' <span class="missed-txt">' + esc(missedText(ws)) + '</span>' : '') + '</div>'
     : '';
-  return '<div class="stu-card ' + cls + '" data-card="' + esc(s.id) + '">' +
+  return '<div class="stu-card ' + cls + (wk && wk.locked ? ' is-locked' : '') + '" data-card="' + esc(s.id) + '">' +
     '<div class="stu-top">' +
       '<span class="stu-num">#' + s.serialNumber + '</span>' +
       '<div class="stu-meta">' +
         '<h4>' + esc(s.fullName) + '</h4>' +
         '<div class="mini">حضور ' + p + ' • غياب ' + a + (tinfo ? ' • <span class="att-time ' + tinfo.cls + '" style="display:inline;margin:0">' + esc(tinfo.text) + '</span>' : '') +
-          (wk ? ' <button type="button" class="link" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(wk.id) + '" style="font-size:10px;margin-inline-start:4px">تعديل الوقت</button>' : '') +
+          (wk ? ' <button type="button" class="link" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(wk.id) + '" style="font-size:10px;margin-inline-start:4px">' + (wk.locked ? '<i class="fa-solid fa-lock"></i> الوقت مقفل' : 'تعديل الوقت') + '</button>' : '') +
         '</div>' +
         extra +
       '</div>' +
@@ -3042,11 +3091,16 @@ function renderCards() {
 /* ============================================================
    7. عمليات الحضور
    ============================================================ */
+function weekLockedMsg(w) {
+  const nm = w && w.label ? w.label : 'هذا الأسبوع';
+  toast(nm + ' مقفل — افتح القفل بكلمة السر من رأس العمود', 'warn', { duration: 5500 });
+}
 function setAttendance(sid, wid, st, opts) {
   opts = opts || {};
   const s = getStudent(sid);
   const w = getWeek(wid);
   if (!s || !w) return;
+  if (w.locked) { weekLockedMsg(w); return; }
   if (!s.attendance) s.attendance = {};
   const prevRec = recOf(s.attendance[wid]);
   const prev = prevRec ? prevRec.s : 'pending';
@@ -3085,6 +3139,7 @@ function setAttendance(sid, wid, st, opts) {
 function addPunchLocal(s, wid, type, at, eventId) {
   const w = getWeek(wid);
   if (!s || !w) return { ok: false, error: 'no-target' };
+  if (w.locked) return { ok: false, error: 'week-locked', week: w };
   const t = Number(at) || now();
   if (!s.events) s.events = {};
   let arr = eventsOf(s, wid).slice();
@@ -3151,6 +3206,8 @@ function undoLast() {
   const e = undoStack.pop();
   if (!e) { toast('لا يوجد إجراء للتراجع عنه', 'warn'); return; }
   if (e.type === 'att') {
+    const w = getWeek(e.wid);
+    if (w && w.locked) { undoStack.push(e); weekLockedMsg(w); return; }
     const s = getStudent(e.sid);
     if (!s) return;
     if (!s.attendance) s.attendance = {};
@@ -3297,7 +3354,9 @@ function openInfo(sid) {
           (ws.lastOut ? ' • خروج ' + esc(fmtTs(ws.lastOut.t)) : (ws.open ? ' • داخل الآن' : '')) +
         '</div>'
       : '';
-    const editBtn = '<button type="button" class="hist-edit" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" title="تعديل وقت الحضور"><i class="fa-solid fa-pen"></i></button>';
+    const editBtn = w.locked
+      ? '<button type="button" class="hist-edit locked" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" title="الأسبوع مقفل — افتح القفل من رأس العمود"><i class="fa-solid fa-lock"></i></button>'
+      : '<button type="button" class="hist-edit" data-action="editAtt" data-sid="' + esc(s.id) + '" data-wid="' + esc(w.id) + '" title="تعديل وقت الحضور"><i class="fa-solid fa-pen"></i></button>';
     return '<div class="hist-row"><div><div class="hl">' + esc(w.label) + '</div><div class="hd">' + esc(w.date) + '</div>' +
       (!known && tm ? '<div class="htime">' + esc(tm.title) + '</div>' : '') + detail +
       '</div><div class="hist-side">' + tag + editBtn + '</div></div>';
@@ -3355,6 +3414,7 @@ function openAttEdit(sid, wid) {
   const s = getStudent(sid);
   const w = getWeek(wid);
   if (!s || !w) { toast('تعذر فتح السجل', 'warn'); return; }
+  if (w.locked) { weekLockedMsg(w); return; }
   attEditSid = s.id;
   attEditWid = w.id;
   const rec = recOf(s.attendance ? s.attendance[w.id] : null);
@@ -3388,6 +3448,7 @@ function handleAttEditSubmit(e) {
   const s = getStudent(attEditSid);
   const w = getWeek(attEditWid);
   if (!s || !w) return;
+  if (w.locked) { closeModal('modalAttEdit'); weekLockedMsg(w); return; }
   let inHH = validHHMM($('#attEditIn').value);
   const outHH = validHHMM($('#attEditOut').value);
   const lateRaw = $('#attEditLate').value.trim();
@@ -3519,8 +3580,58 @@ function openWeekModal() {
   $('#inWeekLabel').value = 'الأسبوع ' + nextNum;
   $('#inWeekDate').value = last && last.date ? addDaysISO(last.date, 7) : nextThursdayISO();
   fillWeekTimes('inWeek', last);
-  $('#autoAbsentPrev').checked = true;
   openModal('modalWeek');
+}
+
+let weekLockId = null, weekLockMode = 'lock';
+
+function openWeekLock(wid) {
+  const w = getWeek(wid);
+  if (!w) return;
+  weekLockId = w.id;
+  weekLockMode = w.locked ? 'unlock' : 'lock';
+  const isUnlock = weekLockMode === 'unlock';
+  $('#lockWeekTitle').textContent = isUnlock ? 'فتح قفل الأسبوع' : 'قفل الأسبوع';
+  $('#lockWeekSub').textContent = w.label + ' — ' + (w.date || '');
+  $('#lockWeekIcon').innerHTML = '<i class="fa-solid ' + (isUnlock ? 'fa-lock-open' : 'fa-lock') + '"></i>';
+  $('#lockWeekPassBox').classList.toggle('hidden', !isUnlock);
+  $('#weekLockPass').value = '';
+  $('#lockWeekError').textContent = '';
+  $('#weekLockBtn').innerHTML = '<i class="fa-solid ' + (isUnlock ? 'fa-lock-open' : 'fa-lock') + '"></i>' + (isUnlock ? 'فتح القفل' : 'قفل الأسبوع');
+  $('#lockWeekNote').textContent = isUnlock
+    ? 'أدخل كلمة سر الموقع لفك القفل والسماح بتعديل الحضور والأوقات.'
+    : 'بعد القفل لا يمكن تعديل حضور هذا الأسبوع أو أوقاته أو حذفه إلا بعد فك القفل بكلمة السر.';
+  openModal('modalWeekLock');
+  if (isUnlock) setTimeout(() => $('#weekLockPass').focus(), 80);
+}
+
+async function handleWeekLockSubmit(e) {
+  e.preventDefault();
+  const w = getWeek(weekLockId);
+  if (!w) return;
+  if (weekLockMode === 'lock') {
+    w.locked = true;
+    w.updatedAt = now();
+    saveState(); render();
+    closeModal('modalWeekLock');
+    toast('تم قفل ' + w.label + ' — التعديل يحتاج كلمة السر', 'ok', { duration: 5000 });
+    return;
+  }
+  const pass = ($('#weekLockPass').value || '').trim();
+  const err = $('#lockWeekError');
+  if (!/^\d{4,6}$/.test(pass)) { if (err) err.textContent = 'أدخل كلمة السر (4–6 أرقام)'; return; }
+  const h = await hashAdminPass(pass);
+  if (!h || h !== ADMIN_PASS_HASH) {
+    if (err) err.textContent = 'كلمة السر غير صحيحة';
+    const inp = $('#weekLockPass');
+    if (inp) { inp.value = ''; inp.focus(); }
+    return;
+  }
+  w.locked = false;
+  w.updatedAt = now();
+  saveState(); render();
+  closeModal('modalWeekLock');
+  toast('تم فتح قفل ' + w.label + ' — يمكنك التعديل الآن', 'ok', { duration: 5000 });
 }
 
 let editWeekId = null;
@@ -3528,6 +3639,7 @@ let editWeekId = null;
 function openWeekEdit(wid) {
   const w = (wid && getWeek(wid)) || activeWeek();
   if (!w) { toast('لا يوجد أسبوع لتعديله', 'warn'); return; }
+  if (w.locked) { weekLockedMsg(w); return; }
   editWeekId = w.id;
   $('#weekEditSub').textContent = w.label + ' — ' + (w.date || '');
   $('#editWeekLabel').value = w.label;
@@ -3541,6 +3653,7 @@ function handleWeekEditSubmit(e) {
   e.preventDefault();
   const w = getWeek(editWeekId);
   if (!w) return;
+  if (w.locked) { closeModal('modalWeekEdit'); weekLockedMsg(w); return; }
   const label = $('#editWeekLabel').value.trim();
   const date = $('#editWeekDate').value;
   if (!label || !date) { toast('أكمل العنوان والتاريخ', 'warn'); return; }
@@ -3575,17 +3688,15 @@ function handleWeekSubmit(e) {
   const t = readWeekTimes('inWeek');
   const err = validateWeekTimes(t);
   if (err) { toast(err, 'warn', { duration: 6000 }); return; }
-  const prevWeeks = weeksSorted();
-  let filled = 0;
-  if ($('#autoAbsentPrev').checked && prevWeeks.length) {
-    filled = fillAbsences(prevWeeks);
-  }
+  const todayISO = isoOf(new Date());
+  const prevWeeks = weeksSorted().filter(w => w.date && w.date < date && w.date < todayISO);
+  const filled = prevWeeks.length ? fillAbsences(prevWeeks) : 0;
   const nextNum = prevWeeks.reduce((m, w) => Math.max(m, w.weekNumber || 0), 0) + 1;
   const id = 'week_' + nextNum + '_' + now().toString(36);
   const w = {
     id: id, weekNumber: nextNum, label: label, date: date,
     startTime: '', p1Start: '', p1End: '', p2Start: '', p2End: '',
-    createdAt: now(), updatedAt: now(), deleted: false, isDefault: false
+    createdAt: now(), updatedAt: now(), locked: false, deleted: false, isDefault: false
   };
   applyWeekTimes(w, t);
   state.weeks.push(w);
@@ -3640,7 +3751,7 @@ function handleBulkWeeksSubmit(e) {
       weekNumber: 0, label: '', date: date,
       startTime: times.startTime, p1Start: times.p1Start, p1End: times.p1End,
       p2Start: times.p2Start, p2End: times.p2End,
-      createdAt: now(), updatedAt: now(), deleted: false, isDefault: false
+      createdAt: now(), updatedAt: now(), locked: false, deleted: false, isDefault: false
     });
   });
 
@@ -3657,19 +3768,22 @@ function handleBulkWeeksSubmit(e) {
     }
   });
   const today = isoOf(new Date());
+  const newestCreated = dates[dates.length - 1];
+  const filled = fillAbsences(all.filter(w => w.date && w.date < newestCreated && w.date < today));
   const todayW = all.find(w => w.date === today);
   setActiveWeek(todayW ? todayW.id : all[all.length - 1].id);
   saveState();
   render();
   closeModal('modalBulkWeeks');
   const countText = dates.length === 1 ? 'أسبوع واحد' : dates.length + ' أسابيع';
-  toast('تمت إضافة ' + countText + (copyTimes ? ' مع نسخ الأوقات' : ''), 'ok', { duration: 6000 });
+  toast('تمت إضافة ' + countText + (copyTimes ? ' مع نسخ الأوقات' : '') + (filled ? ' • أُغلق ' + filled + ' سجل غياب' : ''), 'ok', { duration: 6000 });
 }
 
 function fillAbsences(weeksArr) {
   let changed = 0;
   const t = now();
   weeksArr.forEach(w => {
+    if (w.locked) return;
     studentsSorted().forEach(s => {
       if (!s.attendance) s.attendance = {};
       const cur = recStatus(s.attendance[w.id]);
@@ -3685,6 +3799,7 @@ function fillAbsences(weeksArr) {
 
 function deleteWeek(wid) {  const w = getWeek(wid);
   if (!w) return;
+  if (w.locked) { weekLockedMsg(w); return; }
   if (weeksSorted().length <= 1) { toast('لا يمكن حذف الأسبوع الوحيد', 'warn'); return; }
   const count = studentsSorted().filter(s => s.attendance && s.attendance[wid] && recStatus(s.attendance[wid]) !== 'pending').length;
   confirmDialog({
@@ -4774,6 +4889,7 @@ function handlePunch_(body, mode) {
     .sort(function (a, b) { return (a.weekNumber || 0) - (b.weekNumber || 0); });
   var wk = weeks.length ? weeks[weeks.length - 1] : null;
   if (!wk) return respondJson_({ ok: false, error: 'no-week' });
+  if (wk.locked) return respondJson_({ ok: false, error: 'week-locked', week: wk.label });
   var s = null;
   (state.students || []).forEach(function (x) {
     if (x.id === body.studentId && !x.deleted) s = x;
@@ -5341,7 +5457,7 @@ function updateCheckinSession() {
   const phaseTxt = ph
     ? (ph.key === 'p1' ? ' • الفترة الأولى' : ph.key === 'p2' ? ' • الفترة الثانية' : ' • ' + ph.label)
     : (wk.startTime ? ' • البدء ' + fmtTime12(wk.startTime) : '');
-  el.textContent = wk.label + ' • ' + prettyDate(wk.date) + phaseTxt;
+  el.textContent = wk.label + ' • ' + prettyDate(wk.date) + phaseTxt + (wk.locked ? ' • مقفل' : '');
 }
 
 function renderCheckin() {
@@ -5498,6 +5614,7 @@ function ckSubmit() {
   if (!ckMode) { toast('اختر نوع التسجيل أولاً', 'warn'); return; }
   const wk = latestWeek();
   if (!wk) { toast('لا يوجد مجلس مسجّل بعد — راجع المشرف', 'warn'); return; }
+  if (wk.locked) { toast('هذا الأسبوع مقفل — التسجيل متوقف، راجع المشرف', 'warn', { duration: 7000 }); return; }
 
   const at = now();
   const evId = uid('ev');
@@ -5838,6 +5955,10 @@ function bindEvents() {
         e.stopPropagation();
         deleteWeek(el.dataset.week);
         break;
+      case 'toggleWeekLock':
+        e.stopPropagation();
+        openWeekLock(el.dataset.week);
+        break;
       case 'editWeekTime': openWeekEdit(el.dataset.week || activeWeekId); break;
       case 'att':
         setAttendance(el.dataset.sid, el.dataset.wid, el.dataset.st);
@@ -5920,6 +6041,7 @@ function bindEvents() {
   $('#studentForm').addEventListener('submit', handleStudentSubmit);
   $('#weekForm').addEventListener('submit', handleWeekSubmit);
   $('#weekEditForm').addEventListener('submit', handleWeekEditSubmit);
+  $('#weekLockForm').addEventListener('submit', handleWeekLockSubmit);
   $('#attEditForm').addEventListener('submit', handleAttEditSubmit);
   if ($('#attEditLate')) {
     $('#attEditLate').addEventListener('input', function () {
